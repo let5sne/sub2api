@@ -130,6 +130,8 @@ docs/*
 !docs/PAYMENT.md
 !docs/PAYMENT_CN.md
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md
+!docs/custom-pages/
+!docs/custom-pages/**
 .serena/
 .codex/
 frontend/coverage/

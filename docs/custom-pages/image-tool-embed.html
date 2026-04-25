@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; object-src 'none'; form-action 'none'"
+    />
+    <title>Image Studio Embed</title>
+    <style>
+      :root {
+        --bg: #e8f1ef;
+        --bg-layer: radial-gradient(1200px 600px at 110% -20%, #b8d6d1 0%, transparent 55%),
+          radial-gradient(900px 500px at -10% 120%, #d8e9e5 0%, transparent 55%);
+        --panel: #ffffffcc;
+        --panel-solid: #ffffff;
+        --text: #1f2937;
+        --muted: #5b6778;
+        --line: #d6dce6;
+        --accent: #0f766e;
+        --accent-2: #14b8a6;
+        --danger: #be123c;
+        --success: #065f46;
+        --shadow: 0 12px 40px rgba(8, 47, 73, 0.12);
+      }
+
+      :root[data-theme="dark"] {
+        --bg: #0b1220;
+        --bg-layer: radial-gradient(1000px 600px at 120% -10%, #134e4a66 0%, transparent 55%),
+          radial-gradient(900px 500px at -15% 120%, #0f172a 0%, transparent 60%);
+        --panel: #0f172acc;
+        --panel-solid: #0f172a;
+        --text: #dbe4f2;
+        --muted: #95a4bb;
+        --line: #253046;
+        --accent: #2dd4bf;
+        --accent-2: #5eead4;
+        --danger: #fb7185;
+        --success: #34d399;
+        --shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+        background: var(--bg-layer), var(--bg);
+      }
+
+      .shell {
+        min-height: 100vh;
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 360px minmax(540px, 1fr);
+        gap: 16px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--panel);
+        backdrop-filter: blur(8px);
+        box-shadow: var(--shadow);
+      }
+
+      .left {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .brand {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: 0.2px;
+      }
+
+      .subtitle {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .badge {
+        font-size: 11px;
+        border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line));
+        color: var(--accent);
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: color-mix(in oklab, var(--accent) 12%, transparent);
+      }
+
+      .group {
+        display: grid;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--panel-solid);
+        color: var(--text);
+        border-radius: 12px;
+        padding: 10px 12px;
+        outline: none;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .hint {
+        margin: 0;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .warning {
+        border: 1px solid color-mix(in oklab, var(--danger) 35%, var(--line));
+        color: var(--danger);
+        background: color-mix(in oklab, var(--danger) 8%, transparent);
+        border-radius: 10px;
+        font-size: 11px;
+        padding: 8px 10px;
+      }
+
+      .status {
+        border-radius: 12px;
+        border: 1px dashed var(--line);
+        background: color-mix(in oklab, var(--panel-solid) 85%, transparent);
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .status.success {
+        border-color: color-mix(in oklab, var(--success) 45%, var(--line));
+        color: var(--success);
+      }
+
+      .status.error {
+        border-color: color-mix(in oklab, var(--danger) 45%, var(--line));
+        color: var(--danger);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      button {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: var(--panel-solid);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      button.primary {
+        border-color: color-mix(in oklab, var(--accent) 50%, var(--line));
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+        color: #ffffff;
+        font-weight: 600;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .right {
+        padding: 16px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+        min-height: calc(100vh - 40px);
+      }
+
+      .hero {
+        border-radius: 16px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        background: linear-gradient(
+          145deg,
+          color-mix(in oklab, var(--panel-solid) 86%, var(--accent) 14%) 0%,
+          color-mix(in oklab, var(--panel-solid) 90%, var(--accent-2) 10%) 100%
+        );
+      }
+
+      .hero h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .hero p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .gallery {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel-solid);
+        padding: 12px;
+        display: grid;
+        align-content: start;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: color-mix(in oklab, var(--panel-solid) 92%, transparent);
+      }
+
+      .card img {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        display: block;
+        background: #dfe8f5;
+      }
+
+      .card .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .meta small {
+        color: var(--muted);
+      }
+
+      .empty {
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        padding: 24px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      pre {
+        margin: 0;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel-solid);
+        color: var(--text);
+        padding: 12px;
+        max-height: 200px;
+        overflow: auto;
+        font-size: 12px;
+      }
+
+      @media (max-width: 980px) {
+        .shell {
+          grid-template-columns: 1fr;
+          padding: 12px;
+        }
+
+        .right {
+          min-height: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="panel left">
+        <section class="brand">
+          <div>
+            <h1 class="title" id="pageTitle">Image Studio</h1>
+            <p class="subtitle" id="pageSubtitle">Embedded generation page for custom menu iframe.</p>
+          </div>
+          <span class="badge" id="embedBadge">embedded</span>
+        </section>
+
+        <section class="group" id="endpointSection">
+          <label for="endpoint" id="endpointLabel">API Endpoint</label>
+          <input id="endpoint" placeholder="https://api.ai.let5see.xyz/v1/images/generations" />
+          <p class="hint" id="endpointHint">Aligned to your images generations API. Sends JSON by default, multipart when reference image is selected.</p>
+        </section>
+
+        <section class="row">
+          <div class="group">
+            <label for="model" id="modelLabel">Model</label>
+            <input id="model" placeholder="gpt-image-2" />
+          </div>
+          <div class="group">
+            <label for="quality" id="qualityLabel">Quality</label>
+            <select id="quality">
+              <option value="auto">auto</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high" selected>high</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="row">
+          <div class="group">
+            <label for="n" id="countLabel">Count</label>
+            <input id="n" type="number" min="1" max="8" value="1" />
+          </div>
+          <div class="group">
+            <label for="size" id="sizeLabel">Size</label>
+            <select id="size">
+              <option value="3840x2160">3840x2160</option>
+              <option value="1024x1024">1024x1024</option>
+              <option value="1536x1024">1536x1024</option>
+              <option value="1024x1536">1024x1536</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="row">
+          <div class="group">
+            <label for="outputFormat" id="outputFormatLabel">Output Format</label>
+            <select id="outputFormat">
+              <option value="png" selected>png</option>
+              <option value="jpeg">jpeg</option>
+              <option value="webp">webp</option>
+            </select>
+          </div>
+          <div class="group">
+            <label for="responseFormat" id="responseFormatLabel">Response Format</label>
+            <select id="responseFormat">
+              <option value="b64_json" selected>b64_json</option>
+              <option value="url">url</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="group">
+          <label for="prompt" id="promptLabel">Prompt</label>
+          <textarea id="prompt" placeholder="Describe the image you want."></textarea>
+        </section>
+
+        <section class="group">
+          <label for="reference" id="referenceLabel">Reference Image (optional)</label>
+          <input id="reference" type="file" accept="image/*" />
+          <p class="hint" id="referenceHint">When selected, the request will switch to multipart and include file field "reference_image".</p>
+        </section>
+
+        <!-- API Key selector: shown in embedded mode after keys are loaded -->
+        <section class="group" id="apiKeySelectorSection" hidden>
+          <label for="apiKeySelect" id="apiKeyLabel">API Key</label>
+          <select id="apiKeySelect">
+            <option value="">-- Loading keys… --</option>
+          </select>
+          <p class="hint" id="apiKeySelectHint">Select the API key to use for image generation.</p>
+          <div id="apiKeyLoadError" class="warning" hidden></div>
+        </section>
+
+        <!-- Manual token input: shown in standalone mode or as fallback -->
+        <section class="group" id="manualTokenSection">
+          <label for="authToken" id="manualTokenLabel">API Key / Bearer Token</label>
+          <input id="authToken" type="password" autocomplete="off" placeholder="sk-…" />
+          <p class="hint" id="manualTokenHint">Paste your API key here.</p>
+        </section>
+
+        <section id="status" class="status">Ready.</section>
+
+        <section class="actions">
+          <button id="btnReset" type="button">Reset</button>
+          <button id="btnGenerate" type="button" class="primary">Generate</button>
+        </section>
+      </aside>
+
+      <main class="panel right">
+        <section class="hero">
+          <h2 id="heroTitle">Generate inside your existing dashboard</h2>
+          <p id="heroText">
+            This page is designed for iframe embedding in Sub2API custom menu. It automatically reads
+            user_id, token, theme and language from query params.
+          </p>
+        </section>
+
+        <section id="gallery" class="gallery">
+          <div class="empty" id="emptyState">No images yet. Submit a prompt to start.</div>
+        </section>
+
+        <section>
+          <pre id="rawOutput">Raw output will appear here.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        const $ = (id) => document.getElementById(id);
+
+        const els = {
+          endpoint: $("endpoint"),
+          model: $("model"),
+          quality: $("quality"),
+          n: $("n"),
+          size: $("size"),
+          outputFormat: $("outputFormat"),
+          responseFormat: $("responseFormat"),
+          prompt: $("prompt"),
+          reference: $("reference"),
+          authToken: $("authToken"),
+          apiKeySelectorSection: $("apiKeySelectorSection"),
+          apiKeySelect: $("apiKeySelect"),
+          apiKeySelectHint: $("apiKeySelectHint"),
+          apiKeyLoadError: $("apiKeyLoadError"),
+          manualTokenSection: $("manualTokenSection"),
+          status: $("status"),
+          btnGenerate: $("btnGenerate"),
+          btnReset: $("btnReset"),
+          gallery: $("gallery"),
+          emptyState: $("emptyState"),
+          rawOutput: $("rawOutput"),
+          embedBadge: $("embedBadge"),
+        };
+
+        const qs = new URLSearchParams(window.location.search);
+        const embeddedTheme = qs.get("theme") || "light";
+        const embeddedLangRaw = qs.get("lang") || "en";
+        const embeddedToken = qs.get("token") || "";
+        const embeddedUserId = qs.get("user_id") || "";
+        const uiMode = qs.get("ui_mode") || "";
+        const DEFAULT_PROD_ENDPOINT = "https://api.ai.let5see.xyz/v1/images/generations";
+        const ALLOWED_PROD_ENDPOINTS = new Set([DEFAULT_PROD_ENDPOINT]);
+          // Trusted embedding parents. Production origin first, with localhost origins
+          // for local debugging and validation.
+          const TRUSTED_PARENT_ORIGINS = new Set([
+            "https://api.ai.let5see.xyz",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+          ]);
+
+        function normalizeLang(rawLang) {
+          const value = String(rawLang || "en").toLowerCase();
+          if (value.startsWith("zh")) return "zh";
+          return "en";
+        }
+
+        const embeddedLang = normalizeLang(embeddedLangRaw);
+        document.documentElement.lang = embeddedLang;
+
+        const I18N = {
+          en: {
+            pageTitle: "Image Studio",
+            pageSubtitle: "Embedded generation page for custom menu iframe.",
+            embedded: "embedded",
+            standalone: "standalone",
+            endpointLabel: "API Endpoint",
+            endpointHint: "Aligned to your images generations API. Sends JSON by default, multipart when reference image is selected.",
+            endpointLockedTitle: "Endpoint is locked in embedded mode for security.",
+            modelLabel: "Model",
+            qualityLabel: "Quality",
+            countLabel: "Count",
+            sizeLabel: "Size",
+            outputFormatLabel: "Output Format",
+            responseFormatLabel: "Response Format",
+            promptLabel: "Prompt",
+            promptPlaceholder: "Describe the image you want.",
+            referenceLabel: "Reference Image (optional)",
+            referenceHint: "When selected, the request will switch to multipart and include file field \"reference_image\".",
+            apiKeyLabel: "API Key",
+            apiKeyLoading: "-- Loading keys… --",
+            apiKeySelect: "-- Select API key --",
+            apiKeySelectHint: "Select the API key to use for image generation.",
+            manualTokenLabel: "API Key / Bearer Token",
+            manualTokenHint: "Paste your API key here.",
+            ready: "Ready.",
+            reset: "Reset",
+            generate: "Generate",
+            generating: "Generating...",
+            heroTitle: "Generate inside your existing dashboard",
+            heroText: "This page is designed for iframe embedding in Sub2API custom menu. It automatically reads user_id, token, theme and language from query params.",
+            emptyState: "No images yet. Submit a prompt to start.",
+            rawOutput: "Raw output will appear here.",
+            noApiKeys: "No API keys found. Create one in the Keys section.",
+            activeKeysAvailable: "{count} active key(s) available.",
+            loadKeysError: "Could not load API keys: {message}. Enter a key manually below.",
+            noImageUrls: "No image urls found in response. Check raw output below.",
+            noValidImageUrls: "No valid image urls found in response.",
+            download: "Download",
+            invalidEndpoint: "Invalid endpoint.",
+            endpointRequired: "Please fill API endpoint first.",
+            promptRequired: "Please enter prompt.",
+            requestTooFast: "Please wait before sending another request.",
+            sendingRequest: "Sending request...",
+            invalidReferenceImage: "Invalid reference image.",
+            requestFailed: "Request failed: HTTP {status}",
+            requestDone: "Done. Found {count} image(s).",
+            requestError: "Request error. Check endpoint/auth and try again.",
+            resetEmpty: "No images yet. Submit a prompt to start.",
+            endpointMustBeValid: "Endpoint must be a valid URL.",
+            endpointMustUseHttps: "Endpoint must use HTTPS (localhost may use HTTP).",
+            endpointBlocked: "Endpoint modification is blocked in embedded mode.",
+            endpointNotAllowed: "Endpoint is not in allowlist.",
+            refTooLarge: "Reference image too large. Max 10MB.",
+            refTypeUnsupported: "Unsupported file type. Use JPG/PNG/WebP/GIF.",
+          },
+          zh: {
+            pageTitle: "图片生成",
+            pageSubtitle: "用于 Sub2API 自定义菜单 iframe 的嵌入生成页面。",
+            embedded: "嵌入",
+            standalone: "独立",
+            endpointLabel: "API 端点",
+            endpointHint: "固定对接图片生成接口。默认发送 JSON，选择参考图后会自动切换为 multipart。",
+            endpointLockedTitle: "嵌入模式下端点已固定，不能修改。",
+            modelLabel: "模型",
+            qualityLabel: "质量",
+            countLabel: "张数",
+            sizeLabel: "尺寸",
+            outputFormatLabel: "输出格式",
+            responseFormatLabel: "响应格式",
+            promptLabel: "提示词",
+            promptPlaceholder: "描述你想要生成的图片。",
+            referenceLabel: "参考图片（可选）",
+            referenceHint: "选择后，请求会自动切换为 multipart，并附带字段 \"reference_image\"。",
+            apiKeyLabel: "API 密钥",
+            apiKeyLoading: "-- 正在加载密钥… --",
+            apiKeySelect: "-- 请选择 API 密钥 --",
+            apiKeySelectHint: "请选择用于图片生成的 API 密钥。",
+            manualTokenLabel: "API 密钥 / Bearer Token",
+            manualTokenHint: "在这里粘贴你的 API 密钥。",
+            ready: "已就绪。",
+            reset: "重置",
+            generate: "生成",
+            generating: "生成中...",
+            heroTitle: "在你的现有控制台内直接生成",
+            heroText: "此页面用于嵌入 Sub2API 自定义菜单 iframe，会自动读取 query 参数中的 user_id、token、theme 和 language。",
+            emptyState: "暂时还没有图片，提交提示词后开始生成。",
+            rawOutput: "原始输出会显示在这里。",
+            noApiKeys: "未找到 API 密钥，请先在密钥页面创建。",
+            activeKeysAvailable: "当前可用活跃密钥 {count} 个。",
+            loadKeysError: "加载 API 密钥失败：{message}。请在下方手动输入密钥。",
+            noImageUrls: "响应中未找到图片地址，请查看下方原始输出。",
+            noValidImageUrls: "响应中未找到有效图片地址。",
+            download: "下载",
+            invalidEndpoint: "端点无效。",
+            endpointRequired: "请先填写 API 端点。",
+            promptRequired: "请输入提示词。",
+            requestTooFast: "请求过于频繁，请稍后再试。",
+            sendingRequest: "正在发送请求...",
+            invalidReferenceImage: "参考图片无效。",
+            requestFailed: "请求失败：HTTP {status}",
+            requestDone: "完成，共找到 {count} 张图片。",
+            requestError: "请求异常，请检查端点和鉴权后重试。",
+            resetEmpty: "暂时还没有图片，提交提示词后开始生成。",
+            endpointMustBeValid: "端点必须是合法 URL。",
+            endpointMustUseHttps: "端点必须使用 HTTPS（localhost 可使用 HTTP）。",
+            endpointBlocked: "嵌入模式下不允许修改端点。",
+            endpointNotAllowed: "端点不在允许列表中。",
+            refTooLarge: "参考图片过大，最大支持 10MB。",
+            refTypeUnsupported: "不支持的文件类型，请使用 JPG/PNG/WebP/GIF。",
+          },
+        };
+
+        function t(key, vars) {
+          const dict = I18N[embeddedLang] || I18N.en;
+          let text = dict[key] || I18N.en[key] || key;
+          if (vars) {
+            Object.keys(vars).forEach((name) => {
+              text = text.replaceAll("{" + name + "}", String(vars[name]));
+            });
+          }
+          return text;
+        }
+
+        function applyLocalizedText() {
+          document.title = t("pageTitle");
+          $("pageTitle").textContent = t("pageTitle");
+          $("pageSubtitle").textContent = t("pageSubtitle");
+          $("endpointLabel").textContent = t("endpointLabel");
+          $("endpointHint").textContent = t("endpointHint");
+          $("modelLabel").textContent = t("modelLabel");
+          $("qualityLabel").textContent = t("qualityLabel");
+          $("countLabel").textContent = t("countLabel");
+          $("sizeLabel").textContent = t("sizeLabel");
+          $("outputFormatLabel").textContent = t("outputFormatLabel");
+          $("responseFormatLabel").textContent = t("responseFormatLabel");
+          $("promptLabel").textContent = t("promptLabel");
+          $("referenceLabel").textContent = t("referenceLabel");
+          $("referenceHint").textContent = t("referenceHint");
+          $("apiKeyLabel").textContent = t("apiKeyLabel");
+          $("manualTokenLabel").textContent = t("manualTokenLabel");
+          $("manualTokenHint").textContent = t("manualTokenHint");
+          $("btnReset").textContent = t("reset");
+          $("btnGenerate").textContent = t("generate");
+          $("heroTitle").textContent = t("heroTitle");
+          $("heroText").textContent = t("heroText");
+          els.prompt.placeholder = t("promptPlaceholder");
+          els.status.textContent = t("ready");
+          els.emptyState.textContent = t("emptyState");
+          els.rawOutput.textContent = t("rawOutput");
+          if (els.apiKeySelect.options.length === 1 && !els.apiKeySelect.options[0].value) {
+            els.apiKeySelect.options[0].textContent = t("apiKeyLoading");
+          }
+          els.apiKeySelectHint.textContent = t("apiKeySelectHint");
+        }
+
+        if (embeddedTheme === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+
+        applyLocalizedText();
+        els.embedBadge.textContent = uiMode === "embedded" ? t("embedded") : t("standalone");
+
+        function getSafeDefaultEndpoint(rawEndpoint) {
+          if (!rawEndpoint) return DEFAULT_PROD_ENDPOINT;
+          try {
+            const parsed = new URL(rawEndpoint);
+            const normalized = parsed.toString();
+            const hostname = parsed.hostname.toLowerCase();
+            const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+            if (isLocal && parsed.protocol.toLowerCase() === "http:") {
+              return normalized;
+            }
+            if (ALLOWED_PROD_ENDPOINTS.has(normalized)) {
+              return normalized;
+            }
+            return DEFAULT_PROD_ENDPOINT;
+          } catch {
+            return DEFAULT_PROD_ENDPOINT;
+          }
+        }
+
+        function getTrustedParentOrigin() {
+          const fromQuery = qs.get("src_host") || "";
+          return TRUSTED_PARENT_ORIGINS.has(fromQuery) ? fromQuery : "";
+        }
+
+        const defaultEndpoint = uiMode === "embedded"
+          ? DEFAULT_PROD_ENDPOINT
+          : getSafeDefaultEndpoint(window.sessionStorage.getItem("img_studio_endpoint"));
+        const defaultModel = window.sessionStorage.getItem("img_studio_model") || "gpt-image-2";
+        const defaultQuality = window.sessionStorage.getItem("img_studio_quality") || "high";
+        const defaultOutputFormat = window.sessionStorage.getItem("img_studio_output_format") || "png";
+        const defaultResponseFormat = window.sessionStorage.getItem("img_studio_response_format") || "b64_json";
+        const defaultPrompt = window.sessionStorage.getItem("img_studio_prompt") || "";
+
+        const MAX_FILE_SIZE = 10 * 1024 * 1024;
+        const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        const MIN_REQUEST_INTERVAL_MS = 2000;
+        let lastRequestAt = 0;
+
+        els.endpoint.value = defaultEndpoint;
+        els.model.value = defaultModel;
+        els.quality.value = defaultQuality;
+        els.outputFormat.value = defaultOutputFormat;
+        els.responseFormat.value = defaultResponseFormat;
+        els.prompt.value = defaultPrompt;
+
+        if (uiMode === "embedded") {
+          els.endpoint.value = DEFAULT_PROD_ENDPOINT;
+          els.endpoint.disabled = true;
+          els.endpoint.readOnly = true;
+          els.endpoint.title = t("endpointLockedTitle");
+        }
+
+        // ── API Key selector ──────────────────────────────────────────────
+        // In embedded mode, use the JWT session token to fetch the user's API keys
+        // and populate a dropdown. The session token itself is never used for generation.
+        let _selectedApiKey = "";
+
+        function maskKey(key) {
+          if (!key || key.length < 8) return "****";
+          return key.slice(0, 6) + "…" + key.slice(-4);
+        }
+
+        async function loadApiKeys() {
+          if (!embeddedToken || uiMode !== "embedded") return;
+
+          const srcHost = qs.get("src_host") || "";
+          if (!TRUSTED_PARENT_ORIGINS.has(srcHost)) {
+            return; // Only fetch from trusted origins
+          }
+
+          const keysUrl = new URL("/api/v1/keys", srcHost);
+          keysUrl.searchParams.set("page_size", "100");
+          keysUrl.searchParams.set("sort_by", "created_at");
+          keysUrl.searchParams.set("sort_order", "desc");
+
+          try {
+            const resp = await fetch(keysUrl.toString(), {
+              method: "GET",
+              headers: {
+                Authorization: "Bearer " + embeddedToken,
+                Accept: "application/json",
+              },
+            });
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            const data = await resp.json();
+            const keys =
+              Array.isArray(data?.data?.items) ? data.data.items : // Current paginated format
+              Array.isArray(data?.data?.data) ? data.data.data : // Legacy nested data format
+              Array.isArray(data?.data) ? data.data : // Direct data array
+              Array.isArray(data?.items) ? data.items : // Top-level items fallback
+              [];
+
+            if (!keys.length) {
+              els.apiKeyLoadError.textContent = t("noApiKeys");
+              els.apiKeyLoadError.hidden = false;
+              els.apiKeySelectorSection.hidden = false;
+              els.manualTokenSection.hidden = false;
+              return;
+            }
+
+            // Populate dropdown
+            els.apiKeySelect.replaceChildren();
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = t("apiKeySelect");
+            els.apiKeySelect.appendChild(placeholder);
+
+            keys.forEach((k) => {
+              if (k.status !== "active") return;
+              const opt = document.createElement("option");
+              opt.value = k.key;
+              const label = k.name ? k.name + "  (" + maskKey(k.key) + ")" : maskKey(k.key);
+              opt.textContent = label;
+              opt.title = k.name || "";
+              els.apiKeySelect.appendChild(opt);
+            });
+
+            // Show selector, hide manual input
+            els.apiKeySelectorSection.hidden = false;
+            els.manualTokenSection.hidden = true;
+            els.apiKeySelectHint.textContent = t("activeKeysAvailable", {
+              count: keys.filter((k) => k.status === "active").length,
+            });
+
+            els.apiKeySelect.addEventListener("change", function () {
+              _selectedApiKey = els.apiKeySelect.value;
+            });
+            // Pre-select first active key
+            if (els.apiKeySelect.options.length > 1) {
+              els.apiKeySelect.selectedIndex = 1;
+              _selectedApiKey = els.apiKeySelect.value;
+            }
+          } catch (err) {
+            els.apiKeyLoadError.textContent = t("loadKeysError", {
+              message: err && err.message ? err.message : "Unknown error",
+            });
+            els.apiKeyLoadError.hidden = false;
+            els.apiKeySelectorSection.hidden = false;
+            els.manualTokenSection.hidden = false;
+          }
+        }
+
+        loadApiKeys();
+
+        function setStatus(text, type) {
+          els.status.textContent = text;
+          els.status.className = "status";
+          if (type === "success") els.status.classList.add("success");
+          if (type === "error") els.status.classList.add("error");
+        }
+
+        function setLoading(loading) {
+          els.btnGenerate.disabled = loading;
+          els.btnGenerate.textContent = loading ? t("generating") : t("generate");
+        }
+
+        function safeJson(value) {
+          try {
+            return JSON.stringify(value, null, 2);
+          } catch {
+            return String(value);
+          }
+        }
+
+        function inferMime(base64Value) {
+          if (!base64Value) return "image/png";
+          if (base64Value.startsWith("/9j/")) return "image/jpeg";
+          if (base64Value.startsWith("iVBORw0KGgo")) return "image/png";
+          if (base64Value.startsWith("R0lGOD")) return "image/gif";
+          if (base64Value.startsWith("UklGR")) return "image/webp";
+          return "image/png";
+        }
+
+        function collectImages(payload) {
+          const urls = [];
+          const visited = new WeakSet();
+          const knownBranches = ["data", "images", "output", "results", "result"];
+
+          function walk(node, depth) {
+            if (!node) return;
+            if (depth > 10) return;
+            if (Array.isArray(node)) {
+              node.forEach((item) => walk(item, depth + 1));
+              return;
+            }
+            if (typeof node !== "object") return;
+            if (visited.has(node)) return;
+            visited.add(node);
+
+            if (typeof node.url === "string" && /^https?:\/\//.test(node.url)) {
+              urls.push(node.url);
+            }
+            if (typeof node.b64_json === "string") {
+              urls.push("data:" + inferMime(node.b64_json) + ";base64," + node.b64_json);
+            }
+            if (typeof node.base64 === "string") {
+              urls.push("data:" + inferMime(node.base64) + ";base64," + node.base64);
+            }
+            if (typeof node.image_base64 === "string") {
+              urls.push("data:" + inferMime(node.image_base64) + ";base64," + node.image_base64);
+            }
+
+            knownBranches.forEach((key) => {
+              if (node[key] !== undefined) {
+                walk(node[key], depth + 1);
+              }
+            });
+          }
+
+          walk(payload, 0);
+          return [...new Set(urls)];
+        }
+
+        function createEmptyState(text) {
+          const wrap = document.createElement("div");
+          wrap.className = "empty";
+          wrap.textContent = text;
+          return wrap;
+        }
+
+        function renderImages(urls) {
+          els.gallery.replaceChildren();
+
+          if (!urls.length) {
+            els.gallery.appendChild(createEmptyState(t("noImageUrls")));
+            return;
+          }
+
+          urls.forEach((url, index) => {
+            let parsedUrl;
+            try {
+              parsedUrl = new URL(url, window.location.origin).toString();
+            } catch {
+              return;
+            }
+
+            const card = document.createElement("article");
+            card.className = "card";
+
+            const img = document.createElement("img");
+            img.loading = "lazy";
+            img.alt = "Generated image " + (index + 1);
+            img.src = parsedUrl;
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+
+            const serial = document.createElement("small");
+            serial.textContent = "#" + (index + 1);
+
+            const link = document.createElement("a");
+            link.href = parsedUrl;
+            link.download = "image-" + String(index + 1).padStart(2, "0") + ".png";
+            link.rel = "noopener noreferrer";
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = t("download");
+
+            link.appendChild(btn);
+            meta.appendChild(serial);
+            meta.appendChild(link);
+            card.appendChild(img);
+            card.appendChild(meta);
+
+            els.gallery.appendChild(card);
+          });
+
+          if (!els.gallery.children.length) {
+            els.gallery.appendChild(createEmptyState(t("noValidImageUrls")));
+          }
+        }
+
+        function validateEndpoint(rawEndpoint) {
+          let parsed;
+          try {
+            parsed = new URL(rawEndpoint);
+          } catch {
+            throw new Error(t("endpointMustBeValid"));
+          }
+
+          const hostname = parsed.hostname.toLowerCase();
+          const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+          const protocol = parsed.protocol.toLowerCase();
+          if (!(protocol === "https:" || (isLocal && protocol === "http:"))) {
+            throw new Error(t("endpointMustUseHttps"));
+          }
+
+          const normalized = parsed.toString();
+          if (uiMode === "embedded" && normalized !== DEFAULT_PROD_ENDPOINT) {
+            throw new Error(t("endpointBlocked"));
+          }
+          if (!isLocal && !ALLOWED_PROD_ENDPOINTS.has(normalized)) {
+            throw new Error(t("endpointNotAllowed"));
+          }
+          return normalized;
+        }
+
+        function validateReferenceFile(file) {
+          if (!file) return null;
+          if (file.size > MAX_FILE_SIZE) {
+            throw new Error(t("refTooLarge"));
+          }
+          if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+            throw new Error(t("refTypeUnsupported"));
+          }
+          return file;
+        }
+
+        function buildHeaders() {
+          // Prefer dropdown-selected key; fall back to manual input
+          const token = (_selectedApiKey || els.authToken.value || "").trim();
+          if (!token) return {};
+          return { Authorization: token.startsWith("Bearer ") ? token : "Bearer " + token };
+        }
+
+        function saveDraft() {
+          if (uiMode !== "embedded") {
+            window.sessionStorage.setItem("img_studio_endpoint", els.endpoint.value.trim());
+          }
+          window.sessionStorage.setItem("img_studio_model", els.model.value.trim());
+          window.sessionStorage.setItem("img_studio_quality", els.quality.value);
+          window.sessionStorage.setItem("img_studio_output_format", els.outputFormat.value);
+          window.sessionStorage.setItem("img_studio_response_format", els.responseFormat.value);
+          window.sessionStorage.setItem("img_studio_prompt", els.prompt.value);
+        }
+
+        async function generate() {
+          const endpointRaw = uiMode === "embedded" ? DEFAULT_PROD_ENDPOINT : els.endpoint.value.trim();
+          if (!endpointRaw) {
+            setStatus(t("endpointRequired"), "error");
+            return;
+          }
+
+          let endpoint;
+          try {
+            endpoint = validateEndpoint(endpointRaw);
+          } catch (err) {
+            setStatus(err.message || t("invalidEndpoint"), "error");
+            return;
+          }
+
+          const prompt = els.prompt.value.trim();
+          if (!prompt) {
+            setStatus(t("promptRequired"), "error");
+            return;
+          }
+
+          const now = Date.now();
+          if (now - lastRequestAt < MIN_REQUEST_INTERVAL_MS) {
+            setStatus(t("requestTooFast"), "error");
+            return;
+          }
+          lastRequestAt = now;
+
+          saveDraft();
+          setLoading(true);
+          setStatus(t("sendingRequest"), null);
+
+          let file = null;
+          try {
+            file = validateReferenceFile(els.reference.files && els.reference.files[0] ? els.reference.files[0] : null);
+          } catch (err) {
+            setStatus(err.message || t("invalidReferenceImage"), "error");
+            setLoading(false);
+            return;
+          }
+
+          const payload = {
+            model: els.model.value.trim() || undefined,
+            prompt,
+            n: Number(els.n.value) || 1,
+            size: els.size.value,
+            quality: els.quality.value,
+            output_format: els.outputFormat.value,
+            response_format: els.responseFormat.value,
+            lang: embeddedLang,
+            user_id: embeddedUserId || undefined,
+            context: {
+              ui_mode: uiMode || "embedded",
+              src_host: qs.get("src_host") || window.location.origin,
+              src_url: qs.get("src_url") || window.location.href,
+            },
+          };
+
+          try {
+            const headers = buildHeaders();
+            let resp;
+
+            if (file) {
+              const form = new FormData();
+              Object.keys(payload).forEach((k) => {
+                const v = payload[k];
+                if (v === undefined || v === null) return;
+                form.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+              });
+              form.append("reference_image", file);
+              resp = await fetch(endpoint, {
+                method: "POST",
+                headers,
+                body: form,
+              });
+            } else {
+              headers["Content-Type"] = "application/json";
+              headers["Accept"] = "*/*";
+              resp = await fetch(endpoint, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(payload),
+              });
+            }
+
+            const text = await resp.text();
+            let data;
+            try {
+              data = JSON.parse(text);
+            } catch {
+              data = { raw: text };
+            }
+
+            els.rawOutput.textContent = safeJson(data);
+
+            if (!resp.ok) {
+              setStatus(t("requestFailed", { status: resp.status }), "error");
+              renderImages([]);
+              return;
+            }
+
+            const imageUrls = collectImages(data);
+            renderImages(imageUrls);
+            setStatus(t("requestDone", { count: imageUrls.length }), "success");
+          } catch (err) {
+            const detail = err && err.message ? err.message : "Unknown error";
+            const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+            els.rawOutput.textContent = isLocal ? safeJson(detail) : "Error occurred. See server logs.";
+            setStatus(t("requestError"), "error");
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        function resetForm() {
+          els.prompt.value = "";
+          els.reference.value = "";
+          els.rawOutput.textContent = t("rawOutput");
+          els.gallery.replaceChildren(createEmptyState(t("resetEmpty")));
+          setStatus(t("ready"), null);
+        }
+
+        window.addEventListener("message", function (event) {
+          const trustedOrigin = getTrustedParentOrigin();
+          if (!trustedOrigin || event.origin !== trustedOrigin) return;
+          if (!event || !event.data || typeof event.data !== "object") return;
+          // No-op: token injection via postMessage is not used; keys are loaded via API.
+        });
+
+        if (window.parent && window.parent !== window) {
+          const parentOrigin = getTrustedParentOrigin();
+          if (parentOrigin) {
+            window.parent.postMessage({ type: "SUB2API_EMBED_READY" }, parentOrigin);
+          }
+        }
+
+        els.btnGenerate.addEventListener("click", generate);
+        els.btnReset.addEventListener("click", resetForm);
+      })();
+    </script>
+  </body>
+</html>
