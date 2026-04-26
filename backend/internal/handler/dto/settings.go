@@ -146,6 +146,16 @@ type SystemSettings struct {
 	EnableMetadataPassthrough    bool `json:"enable_metadata_passthrough"`
 	EnableCCHSigning             bool `json:"enable_cch_signing"`
 
+	// Compliance moderation
+	ComplianceModerationEnabled          bool   `json:"compliance_moderation_enabled"`
+	ComplianceTencentSecretID            string `json:"compliance_tencent_secret_id"`
+	ComplianceTencentSecretKeyConfigured bool   `json:"compliance_tencent_secret_key_configured"`
+	ComplianceTencentRegion              string `json:"compliance_tencent_region"`
+	ComplianceModerationType             string `json:"compliance_moderation_type"`
+	ComplianceModerationTimeoutSeconds   int    `json:"compliance_moderation_timeout_seconds"`
+	ComplianceModerationMaxChars         int    `json:"compliance_moderation_max_chars"`
+	ComplianceModerationReviewAction     string `json:"compliance_moderation_review_action"`
+
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
 

@@ -209,6 +209,14 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		EnableFingerprintUnification:           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:              settings.EnableMetadataPassthrough,
 		EnableCCHSigning:                       settings.EnableCCHSigning,
+		ComplianceModerationEnabled:            settings.ComplianceModerationEnabled,
+		ComplianceTencentSecretID:              settings.ComplianceTencentSecretID,
+		ComplianceTencentSecretKeyConfigured:   settings.ComplianceTencentSecretKeyConfigured,
+		ComplianceTencentRegion:                settings.ComplianceTencentRegion,
+		ComplianceModerationType:               settings.ComplianceModerationType,
+		ComplianceModerationTimeoutSeconds:     settings.ComplianceModerationTimeoutSeconds,
+		ComplianceModerationMaxChars:           settings.ComplianceModerationMaxChars,
+		ComplianceModerationReviewAction:       settings.ComplianceModerationReviewAction,
 		WebSearchEmulationEnabled:              settings.WebSearchEmulationEnabled,
 		PaymentVisibleMethodAlipaySource:       settings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        settings.PaymentVisibleMethodWxpaySource,
@@ -402,6 +410,16 @@ type UpdateSettingsRequest struct {
 	EnableFingerprintUnification *bool `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough    *bool `json:"enable_metadata_passthrough"`
 	EnableCCHSigning             *bool `json:"enable_cch_signing"`
+
+	// Compliance moderation
+	ComplianceModerationEnabled        *bool   `json:"compliance_moderation_enabled"`
+	ComplianceTencentSecretID          *string `json:"compliance_tencent_secret_id"`
+	ComplianceTencentSecretKey         *string `json:"compliance_tencent_secret_key"`
+	ComplianceTencentRegion            *string `json:"compliance_tencent_region"`
+	ComplianceModerationType           *string `json:"compliance_moderation_type"`
+	ComplianceModerationTimeoutSeconds *int    `json:"compliance_moderation_timeout_seconds"`
+	ComplianceModerationMaxChars       *int    `json:"compliance_moderation_max_chars"`
+	ComplianceModerationReviewAction   *string `json:"compliance_moderation_review_action"`
 
 	// Payment visible method routing
 	PaymentVisibleMethodAlipaySource  *string `json:"payment_visible_method_alipay_source"`
@@ -1092,6 +1110,82 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
+	complianceEnabled := previousSettings.ComplianceModerationEnabled
+	if req.ComplianceModerationEnabled != nil {
+		complianceEnabled = *req.ComplianceModerationEnabled
+	}
+	complianceSecretID := previousSettings.ComplianceTencentSecretID
+	if req.ComplianceTencentSecretID != nil {
+		complianceSecretID = strings.TrimSpace(*req.ComplianceTencentSecretID)
+	}
+	complianceSecretKey := ""
+	effectiveComplianceSecretKey := previousSettings.ComplianceTencentSecretKey
+	if req.ComplianceTencentSecretKey != nil {
+		complianceSecretKey = strings.TrimSpace(*req.ComplianceTencentSecretKey)
+		if complianceSecretKey != "" {
+			effectiveComplianceSecretKey = complianceSecretKey
+		}
+	}
+	complianceRegion := previousSettings.ComplianceTencentRegion
+	if req.ComplianceTencentRegion != nil {
+		complianceRegion = strings.TrimSpace(*req.ComplianceTencentRegion)
+	}
+	if complianceRegion == "" {
+		complianceRegion = "ap-guangzhou"
+	}
+	complianceType := previousSettings.ComplianceModerationType
+	if req.ComplianceModerationType != nil {
+		complianceType = strings.ToUpper(strings.TrimSpace(*req.ComplianceModerationType))
+	}
+	if complianceType == "" {
+		complianceType = "TEXT"
+	}
+	if complianceType != "TEXT" {
+		response.BadRequest(c, "Compliance moderation type currently only supports TEXT")
+		return
+	}
+	complianceTimeoutSeconds := previousSettings.ComplianceModerationTimeoutSeconds
+	if req.ComplianceModerationTimeoutSeconds != nil {
+		complianceTimeoutSeconds = *req.ComplianceModerationTimeoutSeconds
+	}
+	if complianceTimeoutSeconds < 1 {
+		complianceTimeoutSeconds = 1
+	}
+	if complianceTimeoutSeconds > 30 {
+		complianceTimeoutSeconds = 30
+	}
+	complianceMaxChars := previousSettings.ComplianceModerationMaxChars
+	if req.ComplianceModerationMaxChars != nil {
+		complianceMaxChars = *req.ComplianceModerationMaxChars
+	}
+	if complianceMaxChars < 1 {
+		complianceMaxChars = 1
+	}
+	if complianceMaxChars > 10000 {
+		complianceMaxChars = 10000
+	}
+	complianceReviewAction := previousSettings.ComplianceModerationReviewAction
+	if req.ComplianceModerationReviewAction != nil {
+		complianceReviewAction = strings.ToLower(strings.TrimSpace(*req.ComplianceModerationReviewAction))
+	}
+	if complianceReviewAction == "" {
+		complianceReviewAction = "block"
+	}
+	if complianceReviewAction != "block" && complianceReviewAction != "pass" {
+		response.BadRequest(c, "Compliance review action must be block or pass")
+		return
+	}
+	if complianceEnabled {
+		if complianceSecretID == "" {
+			response.BadRequest(c, "Tencent Cloud SecretId is required when compliance moderation is enabled")
+			return
+		}
+		if effectiveComplianceSecretKey == "" {
+			response.BadRequest(c, "Tencent Cloud SecretKey is required when compliance moderation is enabled")
+			return
+		}
+	}
+
 	settings := &service.SystemSettings{
 		RegistrationEnabled:              req.RegistrationEnabled,
 		EmailVerifyEnabled:               req.EmailVerifyEnabled,
@@ -1228,6 +1322,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.EnableCCHSigning
 		}(),
+		ComplianceModerationEnabled:        complianceEnabled,
+		ComplianceTencentSecretID:          complianceSecretID,
+		ComplianceTencentSecretKey:         complianceSecretKey,
+		ComplianceTencentRegion:            complianceRegion,
+		ComplianceModerationType:           complianceType,
+		ComplianceModerationTimeoutSeconds: complianceTimeoutSeconds,
+		ComplianceModerationMaxChars:       complianceMaxChars,
+		ComplianceModerationReviewAction:   complianceReviewAction,
 		PaymentVisibleMethodAlipaySource: func() string {
 			if req.PaymentVisibleMethodAlipaySource != nil {
 				return strings.TrimSpace(*req.PaymentVisibleMethodAlipaySource)
@@ -1517,6 +1619,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EnableFingerprintUnification:           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:              updatedSettings.EnableMetadataPassthrough,
 		EnableCCHSigning:                       updatedSettings.EnableCCHSigning,
+		ComplianceModerationEnabled:            updatedSettings.ComplianceModerationEnabled,
+		ComplianceTencentSecretID:              updatedSettings.ComplianceTencentSecretID,
+		ComplianceTencentSecretKeyConfigured:   updatedSettings.ComplianceTencentSecretKeyConfigured,
+		ComplianceTencentRegion:                updatedSettings.ComplianceTencentRegion,
+		ComplianceModerationType:               updatedSettings.ComplianceModerationType,
+		ComplianceModerationTimeoutSeconds:     updatedSettings.ComplianceModerationTimeoutSeconds,
+		ComplianceModerationMaxChars:           updatedSettings.ComplianceModerationMaxChars,
+		ComplianceModerationReviewAction:       updatedSettings.ComplianceModerationReviewAction,
 		PaymentVisibleMethodAlipaySource:       updatedSettings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        updatedSettings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:      updatedSettings.PaymentVisibleMethodAlipayEnabled,

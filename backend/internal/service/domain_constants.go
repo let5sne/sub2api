@@ -330,6 +330,16 @@ const (
 	// SettingKeyEnableCCHSigning 是否对 billing header 中的 cch 进行 xxHash64 签名（默认 false）
 	SettingKeyEnableCCHSigning = "enable_cch_signing"
 
+	// Compliance Moderation
+	SettingKeyComplianceModerationEnabled        = "compliance_moderation_enabled"
+	SettingKeyComplianceTencentSecretID          = "compliance_tencent_secret_id"
+	SettingKeyComplianceTencentSecretKey         = "compliance_tencent_secret_key"
+	SettingKeyComplianceTencentRegion            = "compliance_tencent_region"
+	SettingKeyComplianceModerationType           = "compliance_moderation_type"
+	SettingKeyComplianceModerationTimeoutSeconds = "compliance_moderation_timeout_seconds"
+	SettingKeyComplianceModerationMaxChars       = "compliance_moderation_max_chars"
+	SettingKeyComplianceModerationReviewAction   = "compliance_moderation_review_action"
+
 	// Balance Low Notification
 	SettingKeyBalanceLowNotifyEnabled     = "balance_low_notify_enabled"      // 全局开关
 	SettingKeyBalanceLowNotifyThreshold   = "balance_low_notify_threshold"    // 默认阈值（USD）

@@ -1245,6 +1245,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyEnableFingerprintUnification] = strconv.FormatBool(settings.EnableFingerprintUnification)
 	updates[SettingKeyEnableMetadataPassthrough] = strconv.FormatBool(settings.EnableMetadataPassthrough)
 	updates[SettingKeyEnableCCHSigning] = strconv.FormatBool(settings.EnableCCHSigning)
+	updates[SettingKeyComplianceModerationEnabled] = strconv.FormatBool(settings.ComplianceModerationEnabled)
+	updates[SettingKeyComplianceTencentSecretID] = strings.TrimSpace(settings.ComplianceTencentSecretID)
+	if strings.TrimSpace(settings.ComplianceTencentSecretKey) != "" {
+		updates[SettingKeyComplianceTencentSecretKey] = strings.TrimSpace(settings.ComplianceTencentSecretKey)
+	}
+	updates[SettingKeyComplianceTencentRegion] = strings.TrimSpace(settings.ComplianceTencentRegion)
+	updates[SettingKeyComplianceModerationType] = strings.TrimSpace(settings.ComplianceModerationType)
+	updates[SettingKeyComplianceModerationTimeoutSeconds] = strconv.Itoa(settings.ComplianceModerationTimeoutSeconds)
+	updates[SettingKeyComplianceModerationMaxChars] = strconv.Itoa(settings.ComplianceModerationMaxChars)
+	updates[SettingKeyComplianceModerationReviewAction] = strings.ToLower(strings.TrimSpace(settings.ComplianceModerationReviewAction))
 	updates[SettingPaymentVisibleMethodAlipaySource] = settings.PaymentVisibleMethodAlipaySource
 	updates[SettingPaymentVisibleMethodWxpaySource] = settings.PaymentVisibleMethodWxpaySource
 	updates[SettingPaymentVisibleMethodAlipayEnabled] = strconv.FormatBool(settings.PaymentVisibleMethodAlipayEnabled)
@@ -1880,12 +1890,20 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyMaxClaudeCodeVersion: "",
 
 		// 分组隔离（默认不允许未分组 Key 调度）
-		SettingKeyAllowUngroupedKeyScheduling:    "false",
-		SettingPaymentVisibleMethodAlipaySource:  "",
-		SettingPaymentVisibleMethodWxpaySource:   "",
-		SettingPaymentVisibleMethodAlipayEnabled: "false",
-		SettingPaymentVisibleMethodWxpayEnabled:  "false",
-		openAIAdvancedSchedulerSettingKey:        "false",
+		SettingKeyAllowUngroupedKeyScheduling:        "false",
+		SettingPaymentVisibleMethodAlipaySource:      "",
+		SettingPaymentVisibleMethodWxpaySource:       "",
+		SettingPaymentVisibleMethodAlipayEnabled:     "false",
+		SettingPaymentVisibleMethodWxpayEnabled:      "false",
+		openAIAdvancedSchedulerSettingKey:            "false",
+		SettingKeyComplianceModerationEnabled:        "false",
+		SettingKeyComplianceTencentSecretID:          "",
+		SettingKeyComplianceTencentSecretKey:         "",
+		SettingKeyComplianceTencentRegion:            "ap-guangzhou",
+		SettingKeyComplianceModerationType:           "TEXT",
+		SettingKeyComplianceModerationTimeoutSeconds: "5",
+		SettingKeyComplianceModerationMaxChars:       "10000",
+		SettingKeyComplianceModerationReviewAction:   "block",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -2228,6 +2246,48 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	result.EnableMetadataPassthrough = settings[SettingKeyEnableMetadataPassthrough] == "true"
 	result.EnableCCHSigning = settings[SettingKeyEnableCCHSigning] == "true"
+
+	// Compliance moderation: 默认关闭，开启后缺少密钥会在运行时 fail-closed。
+	result.ComplianceModerationEnabled = settings[SettingKeyComplianceModerationEnabled] == "true"
+	result.ComplianceTencentSecretID = strings.TrimSpace(settings[SettingKeyComplianceTencentSecretID])
+	result.ComplianceTencentSecretKey = strings.TrimSpace(settings[SettingKeyComplianceTencentSecretKey])
+	result.ComplianceTencentSecretKeyConfigured = result.ComplianceTencentSecretKey != ""
+	result.ComplianceTencentRegion = strings.TrimSpace(settings[SettingKeyComplianceTencentRegion])
+	if result.ComplianceTencentRegion == "" {
+		result.ComplianceTencentRegion = "ap-guangzhou"
+	}
+	result.ComplianceModerationType = strings.TrimSpace(settings[SettingKeyComplianceModerationType])
+	if result.ComplianceModerationType == "" {
+		result.ComplianceModerationType = "TEXT"
+	}
+	result.ComplianceModerationTimeoutSeconds = 5
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceModerationTimeoutSeconds]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 30 {
+				v = 30
+			}
+			result.ComplianceModerationTimeoutSeconds = v
+		}
+	}
+	result.ComplianceModerationMaxChars = 10000
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceModerationMaxChars]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 10000 {
+				v = 10000
+			}
+			result.ComplianceModerationMaxChars = v
+		}
+	}
+	result.ComplianceModerationReviewAction = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceModerationReviewAction]))
+	if result.ComplianceModerationReviewAction == "" {
+		result.ComplianceModerationReviewAction = "block"
+	}
 
 	// Web search emulation: quick enabled check from the JSON config
 	if raw := settings[SettingKeyWebSearchEmulationConfig]; raw != "" {
