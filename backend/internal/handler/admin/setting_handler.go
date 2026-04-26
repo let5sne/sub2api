@@ -217,6 +217,13 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ComplianceModerationTimeoutSeconds:     settings.ComplianceModerationTimeoutSeconds,
 		ComplianceModerationMaxChars:           settings.ComplianceModerationMaxChars,
 		ComplianceModerationReviewAction:       settings.ComplianceModerationReviewAction,
+		ComplianceExternalDecisionEnabled:      settings.ComplianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint:     settings.ComplianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:      settings.ComplianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:      settings.ComplianceExternalDecisionFailure,
+		ComplianceExternalTenantID:             settings.ComplianceExternalTenantID,
+		ComplianceExternalProjectID:            settings.ComplianceExternalProjectID,
+		ComplianceExternalTargetRegion:         settings.ComplianceExternalTargetRegion,
 		WebSearchEmulationEnabled:              settings.WebSearchEmulationEnabled,
 		PaymentVisibleMethodAlipaySource:       settings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        settings.PaymentVisibleMethodWxpaySource,
@@ -420,6 +427,13 @@ type UpdateSettingsRequest struct {
 	ComplianceModerationTimeoutSeconds *int    `json:"compliance_moderation_timeout_seconds"`
 	ComplianceModerationMaxChars       *int    `json:"compliance_moderation_max_chars"`
 	ComplianceModerationReviewAction   *string `json:"compliance_moderation_review_action"`
+	ComplianceExternalDecisionEnabled  *bool   `json:"compliance_external_decision_enabled"`
+	ComplianceExternalDecisionEndpoint *string `json:"compliance_external_decision_endpoint"`
+	ComplianceExternalDecisionTimeout  *int    `json:"compliance_external_decision_timeout_seconds"`
+	ComplianceExternalDecisionFailure  *string `json:"compliance_external_decision_failure_mode"`
+	ComplianceExternalTenantID         *string `json:"compliance_external_tenant_id"`
+	ComplianceExternalProjectID        *string `json:"compliance_external_project_id"`
+	ComplianceExternalTargetRegion     *string `json:"compliance_external_target_region"`
 
 	// Payment visible method routing
 	PaymentVisibleMethodAlipaySource  *string `json:"payment_visible_method_alipay_source"`
@@ -1140,8 +1154,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if complianceType == "" {
 		complianceType = "TEXT"
 	}
-	if complianceType != "TEXT" {
-		response.BadRequest(c, "Compliance moderation type currently only supports TEXT")
+	if complianceType != "TEXT" && complianceType != "TEXT_AIGC" {
+		response.BadRequest(c, "Compliance moderation type must be TEXT or TEXT_AIGC")
 		return
 	}
 	complianceTimeoutSeconds := previousSettings.ComplianceModerationTimeoutSeconds
@@ -1173,6 +1187,57 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 	if complianceReviewAction != "block" && complianceReviewAction != "pass" {
 		response.BadRequest(c, "Compliance review action must be block or pass")
+		return
+	}
+	complianceExternalDecisionEnabled := previousSettings.ComplianceExternalDecisionEnabled
+	if req.ComplianceExternalDecisionEnabled != nil {
+		complianceExternalDecisionEnabled = *req.ComplianceExternalDecisionEnabled
+	}
+	complianceExternalDecisionEndpoint := previousSettings.ComplianceExternalDecisionEndpoint
+	if req.ComplianceExternalDecisionEndpoint != nil {
+		complianceExternalDecisionEndpoint = strings.TrimSpace(*req.ComplianceExternalDecisionEndpoint)
+	}
+	complianceExternalDecisionTimeout := previousSettings.ComplianceExternalDecisionTimeout
+	if req.ComplianceExternalDecisionTimeout != nil {
+		complianceExternalDecisionTimeout = *req.ComplianceExternalDecisionTimeout
+	}
+	if complianceExternalDecisionTimeout < 1 {
+		complianceExternalDecisionTimeout = 1
+	}
+	if complianceExternalDecisionTimeout > 30 {
+		complianceExternalDecisionTimeout = 30
+	}
+	complianceExternalDecisionFailure := previousSettings.ComplianceExternalDecisionFailure
+	if req.ComplianceExternalDecisionFailure != nil {
+		complianceExternalDecisionFailure = strings.ToLower(strings.TrimSpace(*req.ComplianceExternalDecisionFailure))
+	}
+	if complianceExternalDecisionFailure == "" {
+		complianceExternalDecisionFailure = "fail_closed"
+	}
+	if complianceExternalDecisionFailure != "fail_closed" && complianceExternalDecisionFailure != "fail_open" && complianceExternalDecisionFailure != "fallback_local" {
+		response.BadRequest(c, "Compliance external failure mode must be fail_closed, fail_open, or fallback_local")
+		return
+	}
+	complianceExternalTenantID := previousSettings.ComplianceExternalTenantID
+	if req.ComplianceExternalTenantID != nil {
+		complianceExternalTenantID = strings.TrimSpace(*req.ComplianceExternalTenantID)
+	}
+	if complianceExternalTenantID == "" {
+		complianceExternalTenantID = "default"
+	}
+	complianceExternalProjectID := previousSettings.ComplianceExternalProjectID
+	if req.ComplianceExternalProjectID != nil {
+		complianceExternalProjectID = strings.TrimSpace(*req.ComplianceExternalProjectID)
+	}
+	complianceExternalTargetRegion := previousSettings.ComplianceExternalTargetRegion
+	if req.ComplianceExternalTargetRegion != nil {
+		complianceExternalTargetRegion = strings.ToLower(strings.TrimSpace(*req.ComplianceExternalTargetRegion))
+	}
+	if complianceExternalTargetRegion == "" {
+		complianceExternalTargetRegion = "overseas"
+	}
+	if complianceExternalDecisionEnabled && complianceExternalDecisionEndpoint == "" {
+		response.BadRequest(c, "Compliance external decision endpoint is required when enabled")
 		return
 	}
 	if complianceEnabled {
@@ -1330,6 +1395,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ComplianceModerationTimeoutSeconds: complianceTimeoutSeconds,
 		ComplianceModerationMaxChars:       complianceMaxChars,
 		ComplianceModerationReviewAction:   complianceReviewAction,
+		ComplianceExternalDecisionEnabled:  complianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint: complianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:  complianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:  complianceExternalDecisionFailure,
+		ComplianceExternalTenantID:         complianceExternalTenantID,
+		ComplianceExternalProjectID:        complianceExternalProjectID,
+		ComplianceExternalTargetRegion:     complianceExternalTargetRegion,
 		PaymentVisibleMethodAlipaySource: func() string {
 			if req.PaymentVisibleMethodAlipaySource != nil {
 				return strings.TrimSpace(*req.PaymentVisibleMethodAlipaySource)
@@ -1627,6 +1699,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ComplianceModerationTimeoutSeconds:     updatedSettings.ComplianceModerationTimeoutSeconds,
 		ComplianceModerationMaxChars:           updatedSettings.ComplianceModerationMaxChars,
 		ComplianceModerationReviewAction:       updatedSettings.ComplianceModerationReviewAction,
+		ComplianceExternalDecisionEnabled:      updatedSettings.ComplianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint:     updatedSettings.ComplianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:      updatedSettings.ComplianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:      updatedSettings.ComplianceExternalDecisionFailure,
+		ComplianceExternalTenantID:             updatedSettings.ComplianceExternalTenantID,
+		ComplianceExternalProjectID:            updatedSettings.ComplianceExternalProjectID,
+		ComplianceExternalTargetRegion:         updatedSettings.ComplianceExternalTargetRegion,
 		PaymentVisibleMethodAlipaySource:       updatedSettings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        updatedSettings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:      updatedSettings.PaymentVisibleMethodAlipayEnabled,

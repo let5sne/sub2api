@@ -160,3 +160,73 @@ func TestComplianceUnavailableFailClosed(t *testing.T) {
 		t.Fatalf("expected error decision, got %#v", result)
 	}
 }
+
+func TestComplianceExternalDecisionAllow(t *testing.T) {
+	var captured complianceExternalDecisionRequest
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/decision" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		_, _ = w.Write([]byte(`{"decision":"allow","route_policy":"allow_configured_route","risk_level":"none","event_id":"cevt-1"}`))
+	}))
+	defer ts.Close()
+
+	repo := &complianceSettingRepoStub{values: map[string]string{
+		SettingKeyComplianceModerationEnabled:        "true",
+		SettingKeyComplianceTencentSecretID:          "",
+		SettingKeyComplianceTencentSecretKey:         "",
+		SettingKeyComplianceModerationTimeoutSeconds: "3",
+		SettingKeyComplianceExternalDecisionEnabled:  "true",
+		SettingKeyComplianceExternalDecisionEndpoint: ts.URL,
+		SettingKeyComplianceExternalDecisionTimeout:  "2",
+		SettingKeyComplianceExternalDecisionFailure:  "fail_closed",
+		SettingKeyComplianceExternalTenantID:         "tenant-a",
+		SettingKeyComplianceExternalProjectID:        "project-a",
+		SettingKeyComplianceExternalTargetRegion:     "overseas",
+	}}
+	svc := NewComplianceModerationService(NewSettingService(repo, &config.Config{}))
+	svc.httpClient = ts.Client()
+
+	result, err := svc.CheckInput(context.Background(), ComplianceProtocolOpenAIChat, []byte(`{"messages":[{"content":"hello"}]}`))
+	if err != nil {
+		t.Fatalf("expected allow, got result=%#v err=%v", result, err)
+	}
+	if result.Decision != ComplianceDecisionPass || result.RequestID != "cevt-1" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if captured.TenantID != "tenant-a" || captured.ProjectID != "project-a" || captured.TextExcerpt != "hello" {
+		t.Fatalf("unexpected external request: %#v", captured)
+	}
+}
+
+func TestComplianceExternalDecisionFallbackLocal(t *testing.T) {
+	tencent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"Response":{"Suggestion":"Pass","RequestId":"req-local"}}`))
+	}))
+	defer tencent.Close()
+
+	repo := &complianceSettingRepoStub{values: map[string]string{
+		SettingKeyComplianceModerationEnabled:        "true",
+		SettingKeyComplianceTencentSecretID:          "sid",
+		SettingKeyComplianceTencentSecretKey:         "skey",
+		SettingKeyComplianceModerationTimeoutSeconds: "3",
+		SettingKeyComplianceExternalDecisionEnabled:  "true",
+		SettingKeyComplianceExternalDecisionEndpoint: "http://127.0.0.1:1",
+		SettingKeyComplianceExternalDecisionTimeout:  "1",
+		SettingKeyComplianceExternalDecisionFailure:  "fallback_local",
+	}}
+	svc := NewComplianceModerationService(NewSettingService(repo, &config.Config{}))
+	svc.endpoint = tencent.URL + "/"
+	svc.httpClient = tencent.Client()
+
+	result, err := svc.CheckInput(context.Background(), ComplianceProtocolOpenAIChat, []byte(`{"messages":[{"content":"hello"}]}`))
+	if err != nil {
+		t.Fatalf("expected local fallback pass, got result=%#v err=%v", result, err)
+	}
+	if result.Decision != ComplianceDecisionPass || result.RequestID != "req-local" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}

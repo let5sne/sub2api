@@ -155,6 +155,13 @@ type SystemSettings struct {
 	ComplianceModerationTimeoutSeconds   int    `json:"compliance_moderation_timeout_seconds"`
 	ComplianceModerationMaxChars         int    `json:"compliance_moderation_max_chars"`
 	ComplianceModerationReviewAction     string `json:"compliance_moderation_review_action"`
+	ComplianceExternalDecisionEnabled    bool   `json:"compliance_external_decision_enabled"`
+	ComplianceExternalDecisionEndpoint   string `json:"compliance_external_decision_endpoint"`
+	ComplianceExternalDecisionTimeout    int    `json:"compliance_external_decision_timeout_seconds"`
+	ComplianceExternalDecisionFailure    string `json:"compliance_external_decision_failure_mode"`
+	ComplianceExternalTenantID           string `json:"compliance_external_tenant_id"`
+	ComplianceExternalProjectID          string `json:"compliance_external_project_id"`
+	ComplianceExternalTargetRegion       string `json:"compliance_external_target_region"`
 
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`

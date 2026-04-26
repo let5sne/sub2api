@@ -339,6 +339,13 @@ const (
 	SettingKeyComplianceModerationTimeoutSeconds = "compliance_moderation_timeout_seconds"
 	SettingKeyComplianceModerationMaxChars       = "compliance_moderation_max_chars"
 	SettingKeyComplianceModerationReviewAction   = "compliance_moderation_review_action"
+	SettingKeyComplianceExternalDecisionEnabled  = "compliance_external_decision_enabled"
+	SettingKeyComplianceExternalDecisionEndpoint = "compliance_external_decision_endpoint"
+	SettingKeyComplianceExternalDecisionTimeout  = "compliance_external_decision_timeout_seconds"
+	SettingKeyComplianceExternalDecisionFailure  = "compliance_external_decision_failure_mode"
+	SettingKeyComplianceExternalTenantID         = "compliance_external_tenant_id"
+	SettingKeyComplianceExternalProjectID        = "compliance_external_project_id"
+	SettingKeyComplianceExternalTargetRegion     = "compliance_external_target_region"
 
 	// Balance Low Notification
 	SettingKeyBalanceLowNotifyEnabled     = "balance_low_notify_enabled"      // 全局开关

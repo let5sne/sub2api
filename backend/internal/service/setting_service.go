@@ -1255,6 +1255,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyComplianceModerationTimeoutSeconds] = strconv.Itoa(settings.ComplianceModerationTimeoutSeconds)
 	updates[SettingKeyComplianceModerationMaxChars] = strconv.Itoa(settings.ComplianceModerationMaxChars)
 	updates[SettingKeyComplianceModerationReviewAction] = strings.ToLower(strings.TrimSpace(settings.ComplianceModerationReviewAction))
+	updates[SettingKeyComplianceExternalDecisionEnabled] = strconv.FormatBool(settings.ComplianceExternalDecisionEnabled)
+	updates[SettingKeyComplianceExternalDecisionEndpoint] = strings.TrimSpace(settings.ComplianceExternalDecisionEndpoint)
+	updates[SettingKeyComplianceExternalDecisionTimeout] = strconv.Itoa(settings.ComplianceExternalDecisionTimeout)
+	updates[SettingKeyComplianceExternalDecisionFailure] = strings.ToLower(strings.TrimSpace(settings.ComplianceExternalDecisionFailure))
+	updates[SettingKeyComplianceExternalTenantID] = strings.TrimSpace(settings.ComplianceExternalTenantID)
+	updates[SettingKeyComplianceExternalProjectID] = strings.TrimSpace(settings.ComplianceExternalProjectID)
+	updates[SettingKeyComplianceExternalTargetRegion] = strings.ToLower(strings.TrimSpace(settings.ComplianceExternalTargetRegion))
 	updates[SettingPaymentVisibleMethodAlipaySource] = settings.PaymentVisibleMethodAlipaySource
 	updates[SettingPaymentVisibleMethodWxpaySource] = settings.PaymentVisibleMethodWxpaySource
 	updates[SettingPaymentVisibleMethodAlipayEnabled] = strconv.FormatBool(settings.PaymentVisibleMethodAlipayEnabled)
@@ -1904,6 +1911,13 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyComplianceModerationTimeoutSeconds: "5",
 		SettingKeyComplianceModerationMaxChars:       "10000",
 		SettingKeyComplianceModerationReviewAction:   "block",
+		SettingKeyComplianceExternalDecisionEnabled:  "false",
+		SettingKeyComplianceExternalDecisionEndpoint: "",
+		SettingKeyComplianceExternalDecisionTimeout:  "3",
+		SettingKeyComplianceExternalDecisionFailure:  "fail_closed",
+		SettingKeyComplianceExternalTenantID:         "default",
+		SettingKeyComplianceExternalProjectID:        "",
+		SettingKeyComplianceExternalTargetRegion:     "overseas",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -2287,6 +2301,33 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.ComplianceModerationReviewAction = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceModerationReviewAction]))
 	if result.ComplianceModerationReviewAction == "" {
 		result.ComplianceModerationReviewAction = "block"
+	}
+	result.ComplianceExternalDecisionEnabled = settings[SettingKeyComplianceExternalDecisionEnabled] == "true"
+	result.ComplianceExternalDecisionEndpoint = strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionEndpoint])
+	result.ComplianceExternalDecisionTimeout = 3
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionTimeout]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 30 {
+				v = 30
+			}
+			result.ComplianceExternalDecisionTimeout = v
+		}
+	}
+	result.ComplianceExternalDecisionFailure = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionFailure]))
+	if result.ComplianceExternalDecisionFailure == "" {
+		result.ComplianceExternalDecisionFailure = "fail_closed"
+	}
+	result.ComplianceExternalTenantID = strings.TrimSpace(settings[SettingKeyComplianceExternalTenantID])
+	if result.ComplianceExternalTenantID == "" {
+		result.ComplianceExternalTenantID = "default"
+	}
+	result.ComplianceExternalProjectID = strings.TrimSpace(settings[SettingKeyComplianceExternalProjectID])
+	result.ComplianceExternalTargetRegion = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceExternalTargetRegion]))
+	if result.ComplianceExternalTargetRegion == "" {
+		result.ComplianceExternalTargetRegion = "overseas"
 	}
 
 	// Web search emulation: quick enabled check from the JSON config

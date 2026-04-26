@@ -2857,7 +2857,10 @@
                     </label>
                     <Select
                       v-model="form.compliance_moderation_type"
-                      :options="[{ value: 'TEXT', label: 'TEXT' }]"
+                      :options="[
+                        { value: 'TEXT', label: 'TEXT 内容安全' },
+                        { value: 'TEXT_AIGC', label: 'TEXT_AIGC AI生成识别' },
+                      ]"
                     />
                   </div>
                   <div>
@@ -2903,6 +2906,112 @@
                         { value: 'pass', label: '放行' },
                       ]"
                     />
+                  </div>
+                  <div class="md:col-span-2">
+                    <div class="flex items-center justify-between gap-4">
+                      <div>
+                        <label
+                          class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >
+                          外部合规控制面
+                        </label>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                          启用后优先调用 compliance-platform 决策服务，失败按下方策略处理。
+                        </p>
+                      </div>
+                      <Toggle
+                        v-model="form.compliance_external_decision_enabled"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    v-if="form.compliance_external_decision_enabled"
+                    class="md:col-span-2 grid gap-4 md:grid-cols-2"
+                  >
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        决策服务地址
+                      </label>
+                      <input
+                        v-model="form.compliance_external_decision_endpoint"
+                        type="url"
+                        class="input font-mono text-sm"
+                        placeholder="https://compliance.example.com"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        外部调用失败策略
+                      </label>
+                      <Select
+                        v-model="form.compliance_external_decision_failure_mode"
+                        :options="[
+                          { value: 'fail_closed', label: '阻断' },
+                          { value: 'fallback_local', label: '回退本地审核' },
+                          { value: 'fail_open', label: '放行' },
+                        ]"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        租户 ID
+                      </label>
+                      <input
+                        v-model="form.compliance_external_tenant_id"
+                        type="text"
+                        class="input font-mono text-sm"
+                        placeholder="default"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        项目 ID
+                      </label>
+                      <input
+                        v-model="form.compliance_external_project_id"
+                        type="text"
+                        class="input font-mono text-sm"
+                        placeholder="可选"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        目标区域
+                      </label>
+                      <Select
+                        v-model="form.compliance_external_target_region"
+                        :options="[
+                          { value: 'overseas', label: '境外' },
+                          { value: 'domestic', label: '国内' },
+                        ]"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        外部请求超时（秒）
+                      </label>
+                      <input
+                        v-model.number="
+                          form.compliance_external_decision_timeout_seconds
+                        "
+                        type="number"
+                        min="1"
+                        max="30"
+                        class="input"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5660,6 +5769,13 @@ const form = reactive<SettingsForm>({
   compliance_moderation_timeout_seconds: 5,
   compliance_moderation_max_chars: 10000,
   compliance_moderation_review_action: "block",
+  compliance_external_decision_enabled: false,
+  compliance_external_decision_endpoint: "",
+  compliance_external_decision_timeout_seconds: 3,
+  compliance_external_decision_failure_mode: "fail_closed",
+  compliance_external_tenant_id: "default",
+  compliance_external_project_id: "",
+  compliance_external_target_region: "overseas",
   // Balance & quota notification
   balance_low_notify_enabled: false,
   balance_low_notify_threshold: 0,
@@ -6429,6 +6545,13 @@ async function saveSettings() {
     // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
     if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
     if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
+    if (
+      form.compliance_external_decision_enabled &&
+      !isValidHttpUrl(form.compliance_external_decision_endpoint)
+    ) {
+      appStore.showError("启用外部合规控制面时必须填写有效的 HTTP(S) 地址。");
+      return;
+    }
     if (form.compliance_moderation_enabled) {
       if (!String(form.compliance_tencent_secret_id || "").trim()) {
         appStore.showError("启用合规审核时必须填写腾讯云 SecretId。");
@@ -6583,6 +6706,25 @@ async function saveSettings() {
       ),
       compliance_moderation_review_action:
         form.compliance_moderation_review_action || "block",
+      compliance_external_decision_enabled:
+        form.compliance_external_decision_enabled,
+      compliance_external_decision_endpoint:
+        form.compliance_external_decision_endpoint?.trim() || "",
+      compliance_external_decision_timeout_seconds: Math.min(
+        30,
+        Math.max(
+          1,
+          Number(form.compliance_external_decision_timeout_seconds) || 3,
+        ),
+      ),
+      compliance_external_decision_failure_mode:
+        form.compliance_external_decision_failure_mode || "fail_closed",
+      compliance_external_tenant_id:
+        form.compliance_external_tenant_id?.trim() || "default",
+      compliance_external_project_id:
+        form.compliance_external_project_id?.trim() || "",
+      compliance_external_target_region:
+        form.compliance_external_target_region || "overseas",
       // Payment configuration
       payment_enabled: form.payment_enabled,
       payment_min_amount: Number(form.payment_min_amount) || 0,

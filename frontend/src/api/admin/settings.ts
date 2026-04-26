@@ -447,6 +447,13 @@ export interface SystemSettings {
   compliance_moderation_timeout_seconds: number;
   compliance_moderation_max_chars: number;
   compliance_moderation_review_action: string;
+  compliance_external_decision_enabled: boolean;
+  compliance_external_decision_endpoint: string;
+  compliance_external_decision_timeout_seconds: number;
+  compliance_external_decision_failure_mode: string;
+  compliance_external_tenant_id: string;
+  compliance_external_project_id: string;
+  compliance_external_target_region: string;
   web_search_emulation_enabled?: boolean;
 
   // Payment configuration
@@ -622,6 +629,13 @@ export interface UpdateSettingsRequest {
   compliance_moderation_timeout_seconds?: number;
   compliance_moderation_max_chars?: number;
   compliance_moderation_review_action?: string;
+  compliance_external_decision_enabled?: boolean;
+  compliance_external_decision_endpoint?: string;
+  compliance_external_decision_timeout_seconds?: number;
+  compliance_external_decision_failure_mode?: string;
+  compliance_external_tenant_id?: string;
+  compliance_external_project_id?: string;
+  compliance_external_target_region?: string;
   // Payment configuration
   payment_enabled?: boolean;
   payment_min_amount?: number;

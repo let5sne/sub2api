@@ -50,15 +50,22 @@ var (
 )
 
 type ComplianceModerationRuntimeConfig struct {
-	Enabled             bool
-	TencentSecretID     string
-	TencentSecretKey    string
-	TencentRegion       string
-	ModerationType      string
-	Timeout             time.Duration
-	MaxChars            int
-	ReviewAction        string
-	SecretKeyConfigured bool
+	Enabled                  bool
+	TencentSecretID          string
+	TencentSecretKey         string
+	TencentRegion            string
+	ModerationType           string
+	Timeout                  time.Duration
+	MaxChars                 int
+	ReviewAction             string
+	SecretKeyConfigured      bool
+	ExternalDecisionEnabled  bool
+	ExternalDecisionEndpoint string
+	ExternalDecisionTimeout  time.Duration
+	ExternalDecisionFailure  string
+	ExternalTenantID         string
+	ExternalProjectID        string
+	ExternalTargetRegion     string
 }
 
 type ComplianceCheckResult struct {
@@ -130,12 +137,6 @@ func (s *ComplianceModerationService) check(ctx context.Context, stage string, p
 	if !cfg.Enabled {
 		return result, nil
 	}
-	if strings.TrimSpace(cfg.TencentSecretID) == "" || strings.TrimSpace(cfg.TencentSecretKey) == "" {
-		result.Decision = ComplianceDecisionError
-		result.Error = "missing Tencent Cloud moderation credentials"
-		return result, ErrComplianceUnavailable
-	}
-
 	extracted := extractComplianceText(stage, protocol, body)
 	result.SkippedNonText = extracted.SkippedNonText
 	text := strings.TrimSpace(strings.Join(extracted.Texts, "\n"))
@@ -146,6 +147,19 @@ func (s *ComplianceModerationService) check(ctx context.Context, stage string, p
 	result.TextBytes = len([]byte(text))
 	result.TextChars = utf8.RuneCountInString(text)
 	result.TextHash = complianceTextHash(text)
+
+	if cfg.ExternalDecisionEnabled && strings.TrimSpace(cfg.ExternalDecisionEndpoint) != "" {
+		handled, err := s.checkExternalDecision(ctx, cfg, result, text)
+		if handled || err != nil {
+			return result, err
+		}
+	}
+
+	if strings.TrimSpace(cfg.TencentSecretID) == "" || strings.TrimSpace(cfg.TencentSecretKey) == "" {
+		result.Decision = ComplianceDecisionError
+		result.Error = "missing Tencent Cloud moderation credentials"
+		return result, ErrComplianceUnavailable
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -189,15 +203,22 @@ func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*Compl
 		return nil, fmt.Errorf("load compliance settings: %w", err)
 	}
 	cfg := &ComplianceModerationRuntimeConfig{
-		Enabled:             settings.ComplianceModerationEnabled,
-		TencentSecretID:     strings.TrimSpace(settings.ComplianceTencentSecretID),
-		TencentSecretKey:    strings.TrimSpace(settings.ComplianceTencentSecretKey),
-		TencentRegion:       strings.TrimSpace(settings.ComplianceTencentRegion),
-		ModerationType:      strings.TrimSpace(settings.ComplianceModerationType),
-		Timeout:             time.Duration(settings.ComplianceModerationTimeoutSeconds) * time.Second,
-		MaxChars:            settings.ComplianceModerationMaxChars,
-		ReviewAction:        strings.TrimSpace(settings.ComplianceModerationReviewAction),
-		SecretKeyConfigured: settings.ComplianceTencentSecretKeyConfigured,
+		Enabled:                  settings.ComplianceModerationEnabled,
+		TencentSecretID:          strings.TrimSpace(settings.ComplianceTencentSecretID),
+		TencentSecretKey:         strings.TrimSpace(settings.ComplianceTencentSecretKey),
+		TencentRegion:            strings.TrimSpace(settings.ComplianceTencentRegion),
+		ModerationType:           strings.TrimSpace(settings.ComplianceModerationType),
+		Timeout:                  time.Duration(settings.ComplianceModerationTimeoutSeconds) * time.Second,
+		MaxChars:                 settings.ComplianceModerationMaxChars,
+		ReviewAction:             strings.TrimSpace(settings.ComplianceModerationReviewAction),
+		SecretKeyConfigured:      settings.ComplianceTencentSecretKeyConfigured,
+		ExternalDecisionEnabled:  settings.ComplianceExternalDecisionEnabled,
+		ExternalDecisionEndpoint: strings.TrimSpace(settings.ComplianceExternalDecisionEndpoint),
+		ExternalDecisionTimeout:  time.Duration(settings.ComplianceExternalDecisionTimeout) * time.Second,
+		ExternalDecisionFailure:  strings.TrimSpace(settings.ComplianceExternalDecisionFailure),
+		ExternalTenantID:         strings.TrimSpace(settings.ComplianceExternalTenantID),
+		ExternalProjectID:        strings.TrimSpace(settings.ComplianceExternalProjectID),
+		ExternalTargetRegion:     strings.TrimSpace(settings.ComplianceExternalTargetRegion),
 	}
 	if cfg.TencentRegion == "" {
 		cfg.TencentRegion = "ap-guangzhou"
@@ -216,6 +237,21 @@ func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*Compl
 	}
 	if cfg.ReviewAction == "" {
 		cfg.ReviewAction = "block"
+	}
+	if cfg.ExternalDecisionTimeout <= 0 {
+		cfg.ExternalDecisionTimeout = 3 * time.Second
+	}
+	if cfg.ExternalDecisionTimeout > 30*time.Second {
+		cfg.ExternalDecisionTimeout = 30 * time.Second
+	}
+	if cfg.ExternalDecisionFailure == "" {
+		cfg.ExternalDecisionFailure = "fail_closed"
+	}
+	if cfg.ExternalTenantID == "" {
+		cfg.ExternalTenantID = "default"
+	}
+	if cfg.ExternalTargetRegion == "" {
+		cfg.ExternalTargetRegion = "overseas"
 	}
 
 	s.mu.Lock()

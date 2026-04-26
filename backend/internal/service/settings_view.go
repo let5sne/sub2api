@@ -163,6 +163,13 @@ type SystemSettings struct {
 	ComplianceModerationTimeoutSeconds   int
 	ComplianceModerationMaxChars         int
 	ComplianceModerationReviewAction     string
+	ComplianceExternalDecisionEnabled    bool
+	ComplianceExternalDecisionEndpoint   string
+	ComplianceExternalDecisionTimeout    int
+	ComplianceExternalDecisionFailure    string
+	ComplianceExternalTenantID           string
+	ComplianceExternalProjectID          string
+	ComplianceExternalTargetRegion       string
 
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
