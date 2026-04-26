@@ -1086,9 +1086,12 @@ func isKnownOpsErrorType(t string) bool {
 		"rate_limit_error",
 		"billing_error",
 		"subscription_error",
+		"permission_error",
 		"upstream_error",
 		"overloaded_error",
 		"api_error",
+		"content_policy_violation",
+		"moderation_unavailable",
 		"not_found_error",
 		"forbidden_error":
 		return true
@@ -1124,6 +1127,11 @@ func classifyOpsPhase(errType, message, code string) string {
 		return "auth"
 	case "billing_error", "subscription_error":
 		return "request"
+	case "permission_error":
+		if strings.Contains(msg, "compliance moderation") {
+			return "compliance"
+		}
+		return "auth"
 	case "rate_limit_error":
 		if strings.Contains(msg, "concurrency") || strings.Contains(msg, "pending") || strings.Contains(msg, "queue") {
 			return "request"
@@ -1133,6 +1141,8 @@ func classifyOpsPhase(errType, message, code string) string {
 		return "request"
 	case "upstream_error", "overloaded_error":
 		return "upstream"
+	case "content_policy_violation", "moderation_unavailable":
+		return "compliance"
 	case "api_error":
 		if strings.Contains(msg, opsErrNoAvailableAccounts) {
 			return "routing"
@@ -1145,8 +1155,10 @@ func classifyOpsPhase(errType, message, code string) string {
 
 func classifyOpsSeverity(errType string, status int) string {
 	switch errType {
-	case "invalid_request_error", "authentication_error", "billing_error", "subscription_error":
+	case "invalid_request_error", "authentication_error", "billing_error", "subscription_error", "content_policy_violation":
 		return "P3"
+	case "moderation_unavailable":
+		return "P1"
 	}
 	if status >= 500 {
 		return "P1"
@@ -1162,7 +1174,7 @@ func classifyOpsSeverity(errType string, status int) string {
 
 func classifyOpsIsRetryable(errType string, statusCode int) bool {
 	switch errType {
-	case "authentication_error", "invalid_request_error":
+	case "authentication_error", "invalid_request_error", "content_policy_violation":
 		return false
 	case "timeout_error":
 		return true
@@ -1202,6 +1214,8 @@ func classifyOpsErrorOwner(phase string, message string) string {
 		return "provider"
 	case "request", "auth":
 		return "client"
+	case "compliance":
+		return "platform"
 	case "routing", "internal":
 		return "platform"
 	default:
@@ -1221,6 +1235,8 @@ func classifyOpsErrorSource(phase string, message string) string {
 		return "gateway"
 	case "request", "auth":
 		return "client_request"
+	case "compliance":
+		return "gateway"
 	case "routing", "internal":
 		return "gateway"
 	default:

@@ -403,6 +403,11 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 
 	chatResp := apicompat.ResponsesToChatCompletions(finalResponse, originalModel)
 
+	if respBytes, err := json.Marshal(chatResp); err == nil {
+		if err := s.enforceOpenAIOutputCompliance(c.Request.Context(), c, ComplianceProtocolOpenAIChat, respBytes); err != nil {
+			return nil, err
+		}
+	}
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}

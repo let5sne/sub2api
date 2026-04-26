@@ -27,14 +27,15 @@ import (
 
 // OpenAIGatewayHandler handles OpenAI API gateway requests
 type OpenAIGatewayHandler struct {
-	gatewayService          *service.OpenAIGatewayService
-	billingCacheService     *service.BillingCacheService
-	apiKeyService           *service.APIKeyService
-	usageRecordWorkerPool   *service.UsageRecordWorkerPool
-	errorPassthroughService *service.ErrorPassthroughService
-	concurrencyHelper       *ConcurrencyHelper
-	maxAccountSwitches      int
-	cfg                     *config.Config
+	gatewayService              *service.OpenAIGatewayService
+	billingCacheService         *service.BillingCacheService
+	apiKeyService               *service.APIKeyService
+	usageRecordWorkerPool       *service.UsageRecordWorkerPool
+	errorPassthroughService     *service.ErrorPassthroughService
+	concurrencyHelper           *ConcurrencyHelper
+	complianceModerationService *service.ComplianceModerationService
+	maxAccountSwitches          int
+	cfg                         *config.Config
 }
 
 func resolveOpenAIForwardDefaultMappedModel(apiKey *service.APIKey, fallbackModel string) string {
@@ -62,6 +63,7 @@ func NewOpenAIGatewayHandler(
 	apiKeyService *service.APIKeyService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
+	complianceModerationService *service.ComplianceModerationService,
 	cfg *config.Config,
 ) *OpenAIGatewayHandler {
 	pingInterval := time.Duration(0)
@@ -73,14 +75,15 @@ func NewOpenAIGatewayHandler(
 		}
 	}
 	return &OpenAIGatewayHandler{
-		gatewayService:          gatewayService,
-		billingCacheService:     billingCacheService,
-		apiKeyService:           apiKeyService,
-		usageRecordWorkerPool:   usageRecordWorkerPool,
-		errorPassthroughService: errorPassthroughService,
-		concurrencyHelper:       NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
-		maxAccountSwitches:      maxAccountSwitches,
-		cfg:                     cfg,
+		gatewayService:              gatewayService,
+		billingCacheService:         billingCacheService,
+		apiKeyService:               apiKeyService,
+		usageRecordWorkerPool:       usageRecordWorkerPool,
+		errorPassthroughService:     errorPassthroughService,
+		concurrencyHelper:           NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
+		complianceModerationService: complianceModerationService,
+		maxAccountSwitches:          maxAccountSwitches,
+		cfg:                         cfg,
 	}
 }
 
@@ -196,6 +199,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
+
+	if status, openAIType, _, message, blocked := checkComplianceInput(c, h.complianceModerationService, service.ComplianceProtocolOpenAIResponses, body); blocked {
+		h.errorResponse(c, status, openAIType, message)
+		return
+	}
 
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
@@ -579,6 +587,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
+
+	if status, _, anthropicType, message, blocked := checkComplianceInput(c, h.complianceModerationService, service.ComplianceProtocolAnthropicMessages, body); blocked {
+		h.anthropicErrorResponse(c, status, anthropicType, message)
+		return
+	}
 
 	// 解析渠道级模型映射
 	channelMappingMsg, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)

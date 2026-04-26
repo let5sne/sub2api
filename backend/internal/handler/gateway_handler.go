@@ -36,21 +36,22 @@ var gatewayCompatibilityMetricsLogCounter atomic.Uint64
 
 // GatewayHandler handles API gateway requests
 type GatewayHandler struct {
-	gatewayService            *service.GatewayService
-	geminiCompatService       *service.GeminiMessagesCompatService
-	antigravityGatewayService *service.AntigravityGatewayService
-	userService               *service.UserService
-	billingCacheService       *service.BillingCacheService
-	usageService              *service.UsageService
-	apiKeyService             *service.APIKeyService
-	usageRecordWorkerPool     *service.UsageRecordWorkerPool
-	errorPassthroughService   *service.ErrorPassthroughService
-	concurrencyHelper         *ConcurrencyHelper
-	userMsgQueueHelper        *UserMsgQueueHelper
-	maxAccountSwitches        int
-	maxAccountSwitchesGemini  int
-	cfg                       *config.Config
-	settingService            *service.SettingService
+	gatewayService              *service.GatewayService
+	geminiCompatService         *service.GeminiMessagesCompatService
+	antigravityGatewayService   *service.AntigravityGatewayService
+	userService                 *service.UserService
+	billingCacheService         *service.BillingCacheService
+	usageService                *service.UsageService
+	apiKeyService               *service.APIKeyService
+	usageRecordWorkerPool       *service.UsageRecordWorkerPool
+	errorPassthroughService     *service.ErrorPassthroughService
+	concurrencyHelper           *ConcurrencyHelper
+	userMsgQueueHelper          *UserMsgQueueHelper
+	complianceModerationService *service.ComplianceModerationService
+	maxAccountSwitches          int
+	maxAccountSwitchesGemini    int
+	cfg                         *config.Config
+	settingService              *service.SettingService
 }
 
 // NewGatewayHandler creates a new GatewayHandler
@@ -66,6 +67,7 @@ func NewGatewayHandler(
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
 	userMsgQueueService *service.UserMessageQueueService,
+	complianceModerationService *service.ComplianceModerationService,
 	cfg *config.Config,
 	settingService *service.SettingService,
 ) *GatewayHandler {
@@ -89,21 +91,22 @@ func NewGatewayHandler(
 	}
 
 	return &GatewayHandler{
-		gatewayService:            gatewayService,
-		geminiCompatService:       geminiCompatService,
-		antigravityGatewayService: antigravityGatewayService,
-		userService:               userService,
-		billingCacheService:       billingCacheService,
-		usageService:              usageService,
-		apiKeyService:             apiKeyService,
-		usageRecordWorkerPool:     usageRecordWorkerPool,
-		errorPassthroughService:   errorPassthroughService,
-		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
-		userMsgQueueHelper:        umqHelper,
-		maxAccountSwitches:        maxAccountSwitches,
-		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
-		cfg:                       cfg,
-		settingService:            settingService,
+		gatewayService:              gatewayService,
+		geminiCompatService:         geminiCompatService,
+		antigravityGatewayService:   antigravityGatewayService,
+		userService:                 userService,
+		billingCacheService:         billingCacheService,
+		usageService:                usageService,
+		apiKeyService:               apiKeyService,
+		usageRecordWorkerPool:       usageRecordWorkerPool,
+		errorPassthroughService:     errorPassthroughService,
+		concurrencyHelper:           NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
+		userMsgQueueHelper:          umqHelper,
+		complianceModerationService: complianceModerationService,
+		maxAccountSwitches:          maxAccountSwitches,
+		maxAccountSwitchesGemini:    maxAccountSwitchesGemini,
+		cfg:                         cfg,
+		settingService:              settingService,
 	}
 }
 
@@ -186,6 +189,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 验证 model 必填
 	if reqModel == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
+		return
+	}
+
+	if status, _, anthropicType, message, blocked := checkComplianceInput(c, h.complianceModerationService, service.ComplianceProtocolAnthropicMessages, body); blocked {
+		h.errorResponse(c, status, anthropicType, message)
 		return
 	}
 

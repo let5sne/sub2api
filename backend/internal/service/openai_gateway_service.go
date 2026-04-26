@@ -345,10 +345,11 @@ type OpenAIGatewayService struct {
 	openaiWSPassthroughDialer     openAIWSClientDialer
 	openaiAccountStats            *openAIAccountRuntimeStats
 
-	openaiWSFallbackUntil sync.Map // key: int64(accountID), value: time.Time
-	openaiWSRetryMetrics  openAIWSRetryMetrics
-	responseHeaderFilter  *responseheaders.CompiledHeaderFilter
-	codexSnapshotThrottle *accountWriteThrottle
+	openaiWSFallbackUntil       sync.Map // key: int64(accountID), value: time.Time
+	openaiWSRetryMetrics        openAIWSRetryMetrics
+	responseHeaderFilter        *responseheaders.CompiledHeaderFilter
+	codexSnapshotThrottle       *accountWriteThrottle
+	complianceModerationService *ComplianceModerationService
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -372,6 +373,7 @@ func NewOpenAIGatewayService(
 	resolver *ModelPricingResolver,
 	channelService *ChannelService,
 	balanceNotifyService *BalanceNotifyService,
+	complianceModerationService *ComplianceModerationService,
 ) *OpenAIGatewayService {
 	svc := &OpenAIGatewayService{
 		accountRepo:         accountRepo,
@@ -394,16 +396,17 @@ func NewOpenAIGatewayService(
 			nil,
 			"service.openai_gateway",
 		),
-		httpUpstream:          httpUpstream,
-		deferredService:       deferredService,
-		openAITokenProvider:   openAITokenProvider,
-		toolCorrector:         NewCodexToolCorrector(),
-		openaiWSResolver:      NewOpenAIWSProtocolResolver(cfg),
-		resolver:              resolver,
-		channelService:        channelService,
-		balanceNotifyService:  balanceNotifyService,
-		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
-		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
+		httpUpstream:                httpUpstream,
+		deferredService:             deferredService,
+		openAITokenProvider:         openAITokenProvider,
+		toolCorrector:               NewCodexToolCorrector(),
+		openaiWSResolver:            NewOpenAIWSProtocolResolver(cfg),
+		resolver:                    resolver,
+		channelService:              channelService,
+		balanceNotifyService:        balanceNotifyService,
+		responseHeaderFilter:        compileResponseHeaderFilter(cfg),
+		codexSnapshotThrottle:       newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
+		complianceModerationService: complianceModerationService,
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
@@ -3464,6 +3467,9 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 	}
+	if err := s.enforceOpenAIOutputCompliance(ctx, c, ComplianceProtocolOpenAIResponsesJSON, body); err != nil {
+		return nil, err
+	}
 	c.Data(resp.StatusCode, contentType, body)
 	return usage, nil
 }
@@ -3512,8 +3518,6 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		body = []byte(bodyText)
 	}
 
-	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-
 	contentType := "application/json; charset=utf-8"
 	if !ok {
 		contentType = resp.Header.Get("Content-Type")
@@ -3521,6 +3525,12 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 			contentType = "text/event-stream"
 		}
 	}
+	if ok {
+		if err := s.enforceOpenAIOutputCompliance(c.Request.Context(), c, ComplianceProtocolOpenAIResponsesJSON, body); err != nil {
+			return nil, err
+		}
+	}
+	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	c.Data(resp.StatusCode, contentType, body)
 
 	return usage, nil
@@ -4443,6 +4453,10 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 	}
 
+	if err := s.enforceOpenAIOutputCompliance(ctx, c, ComplianceProtocolOpenAIResponsesJSON, body); err != nil {
+		return nil, err
+	}
+
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
 	contentType := "application/json"
@@ -4503,8 +4517,6 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		body = []byte(bodyText)
 	}
 
-	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-
 	contentType := "application/json; charset=utf-8"
 	if !ok {
 		contentType = resp.Header.Get("Content-Type")
@@ -4512,6 +4524,12 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 			contentType = "text/event-stream"
 		}
 	}
+	if ok {
+		if err := s.enforceOpenAIOutputCompliance(c.Request.Context(), c, ComplianceProtocolOpenAIResponsesJSON, body); err != nil {
+			return nil, err
+		}
+	}
+	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	c.Data(resp.StatusCode, contentType, body)
 
 	return usage, nil
