@@ -186,6 +186,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		DefaultConcurrency:                     settings.DefaultConcurrency,
 		DefaultBalance:                         settings.DefaultBalance,
 		AffiliateRebateRate:                    settings.AffiliateRebateRate,
+		AffiliateRebateFreezeHours:             settings.AffiliateRebateFreezeHours,
+		AffiliateRebateDurationDays:            settings.AffiliateRebateDurationDays,
+		AffiliateRebatePerInviteeCap:           settings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    settings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    settings.EnableModelFallback,
@@ -206,6 +209,21 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		EnableFingerprintUnification:           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:              settings.EnableMetadataPassthrough,
 		EnableCCHSigning:                       settings.EnableCCHSigning,
+		ComplianceModerationEnabled:            settings.ComplianceModerationEnabled,
+		ComplianceTencentSecretID:              settings.ComplianceTencentSecretID,
+		ComplianceTencentSecretKeyConfigured:   settings.ComplianceTencentSecretKeyConfigured,
+		ComplianceTencentRegion:                settings.ComplianceTencentRegion,
+		ComplianceModerationType:               settings.ComplianceModerationType,
+		ComplianceModerationTimeoutSeconds:     settings.ComplianceModerationTimeoutSeconds,
+		ComplianceModerationMaxChars:           settings.ComplianceModerationMaxChars,
+		ComplianceModerationReviewAction:       settings.ComplianceModerationReviewAction,
+		ComplianceExternalDecisionEnabled:      settings.ComplianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint:     settings.ComplianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:      settings.ComplianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:      settings.ComplianceExternalDecisionFailure,
+		ComplianceExternalTenantID:             settings.ComplianceExternalTenantID,
+		ComplianceExternalProjectID:            settings.ComplianceExternalProjectID,
+		ComplianceExternalTargetRegion:         settings.ComplianceExternalTargetRegion,
 		WebSearchEmulationEnabled:              settings.WebSearchEmulationEnabled,
 		PaymentVisibleMethodAlipaySource:       settings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        settings.PaymentVisibleMethodWxpaySource,
@@ -342,6 +360,9 @@ type UpdateSettingsRequest struct {
 	DefaultConcurrency                       int                               `json:"default_concurrency"`
 	DefaultBalance                           float64                           `json:"default_balance"`
 	AffiliateRebateRate                      *float64                          `json:"affiliate_rebate_rate"`
+	AffiliateRebateFreezeHours               *int                              `json:"affiliate_rebate_freeze_hours"`
+	AffiliateRebateDurationDays              *int                              `json:"affiliate_rebate_duration_days"`
+	AffiliateRebatePerInviteeCap             *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	DefaultUserRPMLimit                      int                               `json:"default_user_rpm_limit"`
 	DefaultSubscriptions                     []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance            *float64                          `json:"auth_source_default_email_balance"`
@@ -396,6 +417,23 @@ type UpdateSettingsRequest struct {
 	EnableFingerprintUnification *bool `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough    *bool `json:"enable_metadata_passthrough"`
 	EnableCCHSigning             *bool `json:"enable_cch_signing"`
+
+	// Compliance moderation
+	ComplianceModerationEnabled        *bool   `json:"compliance_moderation_enabled"`
+	ComplianceTencentSecretID          *string `json:"compliance_tencent_secret_id"`
+	ComplianceTencentSecretKey         *string `json:"compliance_tencent_secret_key"`
+	ComplianceTencentRegion            *string `json:"compliance_tencent_region"`
+	ComplianceModerationType           *string `json:"compliance_moderation_type"`
+	ComplianceModerationTimeoutSeconds *int    `json:"compliance_moderation_timeout_seconds"`
+	ComplianceModerationMaxChars       *int    `json:"compliance_moderation_max_chars"`
+	ComplianceModerationReviewAction   *string `json:"compliance_moderation_review_action"`
+	ComplianceExternalDecisionEnabled  *bool   `json:"compliance_external_decision_enabled"`
+	ComplianceExternalDecisionEndpoint *string `json:"compliance_external_decision_endpoint"`
+	ComplianceExternalDecisionTimeout  *int    `json:"compliance_external_decision_timeout_seconds"`
+	ComplianceExternalDecisionFailure  *string `json:"compliance_external_decision_failure_mode"`
+	ComplianceExternalTenantID         *string `json:"compliance_external_tenant_id"`
+	ComplianceExternalProjectID        *string `json:"compliance_external_project_id"`
+	ComplianceExternalTargetRegion     *string `json:"compliance_external_target_region"`
 
 	// Payment visible method routing
 	PaymentVisibleMethodAlipaySource  *string `json:"payment_visible_method_alipay_source"`
@@ -484,6 +522,33 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 	if affiliateRebateRate > service.AffiliateRebateRateMax {
 		affiliateRebateRate = service.AffiliateRebateRateMax
+	}
+	affiliateRebateFreezeHours := previousSettings.AffiliateRebateFreezeHours
+	if req.AffiliateRebateFreezeHours != nil {
+		affiliateRebateFreezeHours = *req.AffiliateRebateFreezeHours
+	}
+	if affiliateRebateFreezeHours < 0 {
+		affiliateRebateFreezeHours = service.AffiliateRebateFreezeHoursDefault
+	}
+	if affiliateRebateFreezeHours > service.AffiliateRebateFreezeHoursMax {
+		affiliateRebateFreezeHours = service.AffiliateRebateFreezeHoursMax
+	}
+	affiliateRebateDurationDays := previousSettings.AffiliateRebateDurationDays
+	if req.AffiliateRebateDurationDays != nil {
+		affiliateRebateDurationDays = *req.AffiliateRebateDurationDays
+	}
+	if affiliateRebateDurationDays < 0 {
+		affiliateRebateDurationDays = service.AffiliateRebateDurationDaysDefault
+	}
+	if affiliateRebateDurationDays > service.AffiliateRebateDurationDaysMax {
+		affiliateRebateDurationDays = service.AffiliateRebateDurationDaysMax
+	}
+	affiliateRebatePerInviteeCap := previousSettings.AffiliateRebatePerInviteeCap
+	if req.AffiliateRebatePerInviteeCap != nil {
+		affiliateRebatePerInviteeCap = *req.AffiliateRebatePerInviteeCap
+	}
+	if affiliateRebatePerInviteeCap < 0 {
+		affiliateRebatePerInviteeCap = service.AffiliateRebatePerInviteeCapDefault
 	}
 	// 通用表格配置：兼容旧客户端未传字段时保留当前值。
 	if req.TableDefaultPageSize <= 0 {
@@ -1059,6 +1124,119 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
+	complianceEnabled := previousSettings.ComplianceModerationEnabled
+	if req.ComplianceModerationEnabled != nil {
+		complianceEnabled = *req.ComplianceModerationEnabled
+	}
+	complianceSecretID := previousSettings.ComplianceTencentSecretID
+	if req.ComplianceTencentSecretID != nil {
+		complianceSecretID = strings.TrimSpace(*req.ComplianceTencentSecretID)
+	}
+	complianceSecretKey := ""
+	if req.ComplianceTencentSecretKey != nil {
+		complianceSecretKey = strings.TrimSpace(*req.ComplianceTencentSecretKey)
+	}
+	complianceRegion := previousSettings.ComplianceTencentRegion
+	if req.ComplianceTencentRegion != nil {
+		complianceRegion = strings.TrimSpace(*req.ComplianceTencentRegion)
+	}
+	if complianceRegion == "" {
+		complianceRegion = "ap-guangzhou"
+	}
+	complianceType := previousSettings.ComplianceModerationType
+	if req.ComplianceModerationType != nil {
+		complianceType = strings.ToUpper(strings.TrimSpace(*req.ComplianceModerationType))
+	}
+	if complianceType == "" {
+		complianceType = "TEXT"
+	}
+	if complianceType != "TEXT" && complianceType != "TEXT_AIGC" {
+		response.BadRequest(c, "Compliance moderation type must be TEXT or TEXT_AIGC")
+		return
+	}
+	complianceTimeoutSeconds := previousSettings.ComplianceModerationTimeoutSeconds
+	if req.ComplianceModerationTimeoutSeconds != nil {
+		complianceTimeoutSeconds = *req.ComplianceModerationTimeoutSeconds
+	}
+	if complianceTimeoutSeconds < 1 {
+		complianceTimeoutSeconds = 1
+	}
+	if complianceTimeoutSeconds > 30 {
+		complianceTimeoutSeconds = 30
+	}
+	complianceMaxChars := previousSettings.ComplianceModerationMaxChars
+	if req.ComplianceModerationMaxChars != nil {
+		complianceMaxChars = *req.ComplianceModerationMaxChars
+	}
+	if complianceMaxChars < 1 {
+		complianceMaxChars = 1
+	}
+	if complianceMaxChars > 10000 {
+		complianceMaxChars = 10000
+	}
+	complianceReviewAction := previousSettings.ComplianceModerationReviewAction
+	if req.ComplianceModerationReviewAction != nil {
+		complianceReviewAction = strings.ToLower(strings.TrimSpace(*req.ComplianceModerationReviewAction))
+	}
+	if complianceReviewAction == "" {
+		complianceReviewAction = "block"
+	}
+	if complianceReviewAction != "block" && complianceReviewAction != "pass" {
+		response.BadRequest(c, "Compliance review action must be block or pass")
+		return
+	}
+	complianceExternalDecisionEnabled := previousSettings.ComplianceExternalDecisionEnabled
+	if req.ComplianceExternalDecisionEnabled != nil {
+		complianceExternalDecisionEnabled = *req.ComplianceExternalDecisionEnabled
+	}
+	complianceExternalDecisionEndpoint := previousSettings.ComplianceExternalDecisionEndpoint
+	if req.ComplianceExternalDecisionEndpoint != nil {
+		complianceExternalDecisionEndpoint = strings.TrimSpace(*req.ComplianceExternalDecisionEndpoint)
+	}
+	complianceExternalDecisionTimeout := previousSettings.ComplianceExternalDecisionTimeout
+	if req.ComplianceExternalDecisionTimeout != nil {
+		complianceExternalDecisionTimeout = *req.ComplianceExternalDecisionTimeout
+	}
+	if complianceExternalDecisionTimeout < 1 {
+		complianceExternalDecisionTimeout = 1
+	}
+	if complianceExternalDecisionTimeout > 30 {
+		complianceExternalDecisionTimeout = 30
+	}
+	complianceExternalDecisionFailure := previousSettings.ComplianceExternalDecisionFailure
+	if req.ComplianceExternalDecisionFailure != nil {
+		complianceExternalDecisionFailure = strings.ToLower(strings.TrimSpace(*req.ComplianceExternalDecisionFailure))
+	}
+	if complianceExternalDecisionFailure == "" {
+		complianceExternalDecisionFailure = "fail_closed"
+	}
+	if complianceExternalDecisionFailure != "fail_closed" && complianceExternalDecisionFailure != "fail_open" {
+		response.BadRequest(c, "Compliance external failure mode must be fail_closed or fail_open")
+		return
+	}
+	complianceExternalTenantID := previousSettings.ComplianceExternalTenantID
+	if req.ComplianceExternalTenantID != nil {
+		complianceExternalTenantID = strings.TrimSpace(*req.ComplianceExternalTenantID)
+	}
+	if complianceExternalTenantID == "" {
+		complianceExternalTenantID = "default"
+	}
+	complianceExternalProjectID := previousSettings.ComplianceExternalProjectID
+	if req.ComplianceExternalProjectID != nil {
+		complianceExternalProjectID = strings.TrimSpace(*req.ComplianceExternalProjectID)
+	}
+	complianceExternalTargetRegion := previousSettings.ComplianceExternalTargetRegion
+	if req.ComplianceExternalTargetRegion != nil {
+		complianceExternalTargetRegion = strings.ToLower(strings.TrimSpace(*req.ComplianceExternalTargetRegion))
+	}
+	if complianceExternalTargetRegion == "" {
+		complianceExternalTargetRegion = "overseas"
+	}
+	if complianceEnabled && (!complianceExternalDecisionEnabled || complianceExternalDecisionEndpoint == "") {
+		response.BadRequest(c, "Compliance external decision endpoint is required when compliance moderation is enabled")
+		return
+	}
+
 	settings := &service.SystemSettings{
 		RegistrationEnabled:              req.RegistrationEnabled,
 		EmailVerifyEnabled:               req.EmailVerifyEnabled,
@@ -1137,6 +1315,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		DefaultConcurrency:               req.DefaultConcurrency,
 		DefaultBalance:                   req.DefaultBalance,
 		AffiliateRebateRate:              affiliateRebateRate,
+		AffiliateRebateFreezeHours:       affiliateRebateFreezeHours,
+		AffiliateRebateDurationDays:      affiliateRebateDurationDays,
+		AffiliateRebatePerInviteeCap:     affiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:              req.DefaultUserRPMLimit,
 		DefaultSubscriptions:             defaultSubscriptions,
 		EnableModelFallback:              req.EnableModelFallback,
@@ -1192,6 +1373,21 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.EnableCCHSigning
 		}(),
+		ComplianceModerationEnabled:        complianceEnabled,
+		ComplianceTencentSecretID:          complianceSecretID,
+		ComplianceTencentSecretKey:         complianceSecretKey,
+		ComplianceTencentRegion:            complianceRegion,
+		ComplianceModerationType:           complianceType,
+		ComplianceModerationTimeoutSeconds: complianceTimeoutSeconds,
+		ComplianceModerationMaxChars:       complianceMaxChars,
+		ComplianceModerationReviewAction:   complianceReviewAction,
+		ComplianceExternalDecisionEnabled:  complianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint: complianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:  complianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:  complianceExternalDecisionFailure,
+		ComplianceExternalTenantID:         complianceExternalTenantID,
+		ComplianceExternalProjectID:        complianceExternalProjectID,
+		ComplianceExternalTargetRegion:     complianceExternalTargetRegion,
 		PaymentVisibleMethodAlipaySource: func() string {
 			if req.PaymentVisibleMethodAlipaySource != nil {
 				return strings.TrimSpace(*req.PaymentVisibleMethodAlipaySource)
@@ -1458,6 +1654,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		DefaultConcurrency:                     updatedSettings.DefaultConcurrency,
 		DefaultBalance:                         updatedSettings.DefaultBalance,
 		AffiliateRebateRate:                    updatedSettings.AffiliateRebateRate,
+		AffiliateRebateFreezeHours:             updatedSettings.AffiliateRebateFreezeHours,
+		AffiliateRebateDurationDays:            updatedSettings.AffiliateRebateDurationDays,
+		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    updatedSettings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                   updatedDefaultSubscriptions,
 		EnableModelFallback:                    updatedSettings.EnableModelFallback,
@@ -1478,6 +1677,21 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EnableFingerprintUnification:           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:              updatedSettings.EnableMetadataPassthrough,
 		EnableCCHSigning:                       updatedSettings.EnableCCHSigning,
+		ComplianceModerationEnabled:            updatedSettings.ComplianceModerationEnabled,
+		ComplianceTencentSecretID:              updatedSettings.ComplianceTencentSecretID,
+		ComplianceTencentSecretKeyConfigured:   updatedSettings.ComplianceTencentSecretKeyConfigured,
+		ComplianceTencentRegion:                updatedSettings.ComplianceTencentRegion,
+		ComplianceModerationType:               updatedSettings.ComplianceModerationType,
+		ComplianceModerationTimeoutSeconds:     updatedSettings.ComplianceModerationTimeoutSeconds,
+		ComplianceModerationMaxChars:           updatedSettings.ComplianceModerationMaxChars,
+		ComplianceModerationReviewAction:       updatedSettings.ComplianceModerationReviewAction,
+		ComplianceExternalDecisionEnabled:      updatedSettings.ComplianceExternalDecisionEnabled,
+		ComplianceExternalDecisionEndpoint:     updatedSettings.ComplianceExternalDecisionEndpoint,
+		ComplianceExternalDecisionTimeout:      updatedSettings.ComplianceExternalDecisionTimeout,
+		ComplianceExternalDecisionFailure:      updatedSettings.ComplianceExternalDecisionFailure,
+		ComplianceExternalTenantID:             updatedSettings.ComplianceExternalTenantID,
+		ComplianceExternalProjectID:            updatedSettings.ComplianceExternalProjectID,
+		ComplianceExternalTargetRegion:         updatedSettings.ComplianceExternalTargetRegion,
 		PaymentVisibleMethodAlipaySource:       updatedSettings.PaymentVisibleMethodAlipaySource,
 		PaymentVisibleMethodWxpaySource:        updatedSettings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:      updatedSettings.PaymentVisibleMethodAlipayEnabled,
@@ -1767,6 +1981,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AffiliateRebateRate != after.AffiliateRebateRate {
 		changed = append(changed, "affiliate_rebate_rate")
+	}
+	if before.AffiliateRebateFreezeHours != after.AffiliateRebateFreezeHours {
+		changed = append(changed, "affiliate_rebate_freeze_hours")
+	}
+	if before.AffiliateRebateDurationDays != after.AffiliateRebateDurationDays {
+		changed = append(changed, "affiliate_rebate_duration_days")
+	}
+	if before.AffiliateRebatePerInviteeCap != after.AffiliateRebatePerInviteeCap {
+		changed = append(changed, "affiliate_rebate_per_invitee_cap")
 	}
 	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
 		changed = append(changed, "default_subscriptions")

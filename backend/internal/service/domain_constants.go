@@ -20,10 +20,15 @@ const (
 
 // Affiliate rebate settings
 const (
-	AffiliateRebateRateDefault = 20.0
-	AffiliateRebateRateMin     = 0.0
-	AffiliateRebateRateMax     = 100.0
-	AffiliateEnabledDefault    = false // 邀请返利总开关默认关闭
+	AffiliateRebateRateDefault          = 20.0
+	AffiliateRebateRateMin              = 0.0
+	AffiliateRebateRateMax              = 100.0
+	AffiliateEnabledDefault             = false // 邀请返利总开关默认关闭
+	AffiliateRebateFreezeHoursDefault   = 0     // 0 = 不冻结（向后兼容）
+	AffiliateRebateFreezeHoursMax       = 720   // 最大 30 天
+	AffiliateRebateDurationDaysDefault  = 0     // 0 = 永久有效
+	AffiliateRebateDurationDaysMax      = 3650  // ~10 年
+	AffiliateRebatePerInviteeCapDefault = 0.0   // 0 = 无上限
 )
 
 // Platform constants
@@ -97,6 +102,9 @@ const (
 	SettingKeyInvitationCodeEnabled            = "invitation_code_enabled"             // 是否启用邀请码注册
 	SettingKeyAffiliateEnabled                 = "affiliate_enabled"                   // 邀请返利功能总开关
 	SettingKeyAffiliateRebateRate              = "affiliate_rebate_rate"               // 邀请返利比例（百分比，0-100）
+	SettingKeyAffiliateRebateFreezeHours       = "affiliate_rebate_freeze_hours"       // 返利冻结期（小时，0=不冻结）
+	SettingKeyAffiliateRebateDurationDays      = "affiliate_rebate_duration_days"      // 返利有效期（天，0=永久）
+	SettingKeyAffiliateRebatePerInviteeCap     = "affiliate_rebate_per_invitee_cap"    // 单人返利上限（0=无上限）
 
 	// 邮件服务设置
 	SettingKeySMTPHost     = "smtp_host"      // SMTP服务器地址
@@ -321,6 +329,23 @@ const (
 	SettingKeyEnableMetadataPassthrough = "enable_metadata_passthrough"
 	// SettingKeyEnableCCHSigning 是否对 billing header 中的 cch 进行 xxHash64 签名（默认 false）
 	SettingKeyEnableCCHSigning = "enable_cch_signing"
+
+	// Compliance Moderation
+	SettingKeyComplianceModerationEnabled        = "compliance_moderation_enabled"
+	SettingKeyComplianceTencentSecretID          = "compliance_tencent_secret_id"
+	SettingKeyComplianceTencentSecretKey         = "compliance_tencent_secret_key"
+	SettingKeyComplianceTencentRegion            = "compliance_tencent_region"
+	SettingKeyComplianceModerationType           = "compliance_moderation_type"
+	SettingKeyComplianceModerationTimeoutSeconds = "compliance_moderation_timeout_seconds"
+	SettingKeyComplianceModerationMaxChars       = "compliance_moderation_max_chars"
+	SettingKeyComplianceModerationReviewAction   = "compliance_moderation_review_action"
+	SettingKeyComplianceExternalDecisionEnabled  = "compliance_external_decision_enabled"
+	SettingKeyComplianceExternalDecisionEndpoint = "compliance_external_decision_endpoint"
+	SettingKeyComplianceExternalDecisionTimeout  = "compliance_external_decision_timeout_seconds"
+	SettingKeyComplianceExternalDecisionFailure  = "compliance_external_decision_failure_mode"
+	SettingKeyComplianceExternalTenantID         = "compliance_external_tenant_id"
+	SettingKeyComplianceExternalProjectID        = "compliance_external_project_id"
+	SettingKeyComplianceExternalTargetRegion     = "compliance_external_target_region"
 
 	// Balance Low Notification
 	SettingKeyBalanceLowNotifyEnabled     = "balance_low_notify_enabled"      // 全局开关

@@ -104,12 +104,15 @@ type SystemSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	DefaultConcurrency   int
-	DefaultBalance       float64
-	AffiliateEnabled     bool
-	AffiliateRebateRate  float64
-	DefaultUserRPMLimit  int
-	DefaultSubscriptions []DefaultSubscriptionSetting
+	DefaultConcurrency           int
+	DefaultBalance               float64
+	AffiliateEnabled             bool
+	AffiliateRebateRate          float64
+	AffiliateRebateFreezeHours   int
+	AffiliateRebateDurationDays  int
+	AffiliateRebatePerInviteeCap float64
+	DefaultUserRPMLimit          int
+	DefaultSubscriptions         []DefaultSubscriptionSetting
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -149,6 +152,24 @@ type SystemSettings struct {
 	EnableFingerprintUnification bool // 是否统一 OAuth 账号的指纹头（默认 true）
 	EnableMetadataPassthrough    bool // 是否透传客户端原始 metadata（默认 false）
 	EnableCCHSigning             bool // 是否对 billing header cch 进行签名（默认 false）
+
+	// Compliance moderation
+	ComplianceModerationEnabled          bool
+	ComplianceTencentSecretID            string
+	ComplianceTencentSecretKey           string
+	ComplianceTencentSecretKeyConfigured bool
+	ComplianceTencentRegion              string
+	ComplianceModerationType             string
+	ComplianceModerationTimeoutSeconds   int
+	ComplianceModerationMaxChars         int
+	ComplianceModerationReviewAction     string
+	ComplianceExternalDecisionEnabled    bool
+	ComplianceExternalDecisionEndpoint   string
+	ComplianceExternalDecisionTimeout    int
+	ComplianceExternalDecisionFailure    string
+	ComplianceExternalTenantID           string
+	ComplianceExternalProjectID          string
+	ComplianceExternalTargetRegion       string
 
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟

@@ -309,6 +309,9 @@ export interface SystemSettings {
   // Default settings
   default_balance: number;
   affiliate_rebate_rate: number;
+  affiliate_rebate_freeze_hours: number;
+  affiliate_rebate_duration_days: number;
+  affiliate_rebate_per_invitee_cap: number;
   default_concurrency: number;
   default_user_rpm_limit: number;
   default_subscriptions: DefaultSubscriptionSetting[];
@@ -436,6 +439,21 @@ export interface SystemSettings {
   enable_fingerprint_unification: boolean;
   enable_metadata_passthrough: boolean;
   enable_cch_signing: boolean;
+  compliance_moderation_enabled: boolean;
+  compliance_tencent_secret_id: string;
+  compliance_tencent_secret_key_configured: boolean;
+  compliance_tencent_region: string;
+  compliance_moderation_type: string;
+  compliance_moderation_timeout_seconds: number;
+  compliance_moderation_max_chars: number;
+  compliance_moderation_review_action: string;
+  compliance_external_decision_enabled: boolean;
+  compliance_external_decision_endpoint: string;
+  compliance_external_decision_timeout_seconds: number;
+  compliance_external_decision_failure_mode: string;
+  compliance_external_tenant_id: string;
+  compliance_external_project_id: string;
+  compliance_external_target_region: string;
   web_search_emulation_enabled?: boolean;
 
   // Payment configuration
@@ -494,6 +512,9 @@ export interface UpdateSettingsRequest {
   totp_enabled?: boolean; // TOTP 双因素认证
   default_balance?: number;
   affiliate_rebate_rate?: number;
+  affiliate_rebate_freeze_hours?: number;
+  affiliate_rebate_duration_days?: number;
+  affiliate_rebate_per_invitee_cap?: number;
   default_concurrency?: number;
   default_user_rpm_limit?: number;
   default_subscriptions?: DefaultSubscriptionSetting[];
@@ -600,6 +621,21 @@ export interface UpdateSettingsRequest {
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;
+  compliance_moderation_enabled?: boolean;
+  compliance_tencent_secret_id?: string;
+  compliance_tencent_secret_key?: string;
+  compliance_tencent_region?: string;
+  compliance_moderation_type?: string;
+  compliance_moderation_timeout_seconds?: number;
+  compliance_moderation_max_chars?: number;
+  compliance_moderation_review_action?: string;
+  compliance_external_decision_enabled?: boolean;
+  compliance_external_decision_endpoint?: string;
+  compliance_external_decision_timeout_seconds?: number;
+  compliance_external_decision_failure_mode?: string;
+  compliance_external_tenant_id?: string;
+  compliance_external_project_id?: string;
+  compliance_external_target_region?: string;
   // Payment configuration
   payment_enabled?: boolean;
   payment_min_amount?: number;

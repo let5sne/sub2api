@@ -1175,6 +1175,24 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyDefaultBalance] = strconv.FormatFloat(settings.DefaultBalance, 'f', 8, 64)
 	settings.AffiliateRebateRate = clampAffiliateRebateRate(settings.AffiliateRebateRate)
 	updates[SettingKeyAffiliateRebateRate] = strconv.FormatFloat(settings.AffiliateRebateRate, 'f', 8, 64)
+	if settings.AffiliateRebateFreezeHours < 0 {
+		settings.AffiliateRebateFreezeHours = AffiliateRebateFreezeHoursDefault
+	}
+	if settings.AffiliateRebateFreezeHours > AffiliateRebateFreezeHoursMax {
+		settings.AffiliateRebateFreezeHours = AffiliateRebateFreezeHoursMax
+	}
+	updates[SettingKeyAffiliateRebateFreezeHours] = strconv.Itoa(settings.AffiliateRebateFreezeHours)
+	if settings.AffiliateRebateDurationDays < 0 {
+		settings.AffiliateRebateDurationDays = AffiliateRebateDurationDaysDefault
+	}
+	if settings.AffiliateRebateDurationDays > AffiliateRebateDurationDaysMax {
+		settings.AffiliateRebateDurationDays = AffiliateRebateDurationDaysMax
+	}
+	updates[SettingKeyAffiliateRebateDurationDays] = strconv.Itoa(settings.AffiliateRebateDurationDays)
+	if settings.AffiliateRebatePerInviteeCap < 0 {
+		settings.AffiliateRebatePerInviteeCap = AffiliateRebatePerInviteeCapDefault
+	}
+	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {
@@ -1227,6 +1245,23 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyEnableFingerprintUnification] = strconv.FormatBool(settings.EnableFingerprintUnification)
 	updates[SettingKeyEnableMetadataPassthrough] = strconv.FormatBool(settings.EnableMetadataPassthrough)
 	updates[SettingKeyEnableCCHSigning] = strconv.FormatBool(settings.EnableCCHSigning)
+	updates[SettingKeyComplianceModerationEnabled] = strconv.FormatBool(settings.ComplianceModerationEnabled)
+	updates[SettingKeyComplianceTencentSecretID] = strings.TrimSpace(settings.ComplianceTencentSecretID)
+	if strings.TrimSpace(settings.ComplianceTencentSecretKey) != "" {
+		updates[SettingKeyComplianceTencentSecretKey] = strings.TrimSpace(settings.ComplianceTencentSecretKey)
+	}
+	updates[SettingKeyComplianceTencentRegion] = strings.TrimSpace(settings.ComplianceTencentRegion)
+	updates[SettingKeyComplianceModerationType] = strings.TrimSpace(settings.ComplianceModerationType)
+	updates[SettingKeyComplianceModerationTimeoutSeconds] = strconv.Itoa(settings.ComplianceModerationTimeoutSeconds)
+	updates[SettingKeyComplianceModerationMaxChars] = strconv.Itoa(settings.ComplianceModerationMaxChars)
+	updates[SettingKeyComplianceModerationReviewAction] = strings.ToLower(strings.TrimSpace(settings.ComplianceModerationReviewAction))
+	updates[SettingKeyComplianceExternalDecisionEnabled] = strconv.FormatBool(settings.ComplianceExternalDecisionEnabled)
+	updates[SettingKeyComplianceExternalDecisionEndpoint] = strings.TrimSpace(settings.ComplianceExternalDecisionEndpoint)
+	updates[SettingKeyComplianceExternalDecisionTimeout] = strconv.Itoa(settings.ComplianceExternalDecisionTimeout)
+	updates[SettingKeyComplianceExternalDecisionFailure] = strings.ToLower(strings.TrimSpace(settings.ComplianceExternalDecisionFailure))
+	updates[SettingKeyComplianceExternalTenantID] = strings.TrimSpace(settings.ComplianceExternalTenantID)
+	updates[SettingKeyComplianceExternalProjectID] = strings.TrimSpace(settings.ComplianceExternalProjectID)
+	updates[SettingKeyComplianceExternalTargetRegion] = strings.ToLower(strings.TrimSpace(settings.ComplianceExternalTargetRegion))
 	updates[SettingPaymentVisibleMethodAlipaySource] = settings.PaymentVisibleMethodAlipaySource
 	updates[SettingPaymentVisibleMethodWxpaySource] = settings.PaymentVisibleMethodWxpaySource
 	updates[SettingPaymentVisibleMethodAlipayEnabled] = strconv.FormatBool(settings.PaymentVisibleMethodAlipayEnabled)
@@ -1512,6 +1547,54 @@ func (s *SettingService) GetAffiliateRebateRatePercent(ctx context.Context) floa
 	return clampAffiliateRebateRate(rate)
 }
 
+// GetAffiliateRebateFreezeHours 返回返利冻结期（小时）。
+// 返回 0 表示不冻结（向后兼容）。
+func (s *SettingService) GetAffiliateRebateFreezeHours(ctx context.Context) int {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateRebateFreezeHours)
+	if err != nil {
+		return AffiliateRebateFreezeHoursDefault
+	}
+	hours, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || hours < 0 {
+		return AffiliateRebateFreezeHoursDefault
+	}
+	if hours > AffiliateRebateFreezeHoursMax {
+		return AffiliateRebateFreezeHoursMax
+	}
+	return hours
+}
+
+// GetAffiliateRebateDurationDays 返回返利有效期（天）。
+// 返回 0 表示永久有效。
+func (s *SettingService) GetAffiliateRebateDurationDays(ctx context.Context) int {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateRebateDurationDays)
+	if err != nil {
+		return AffiliateRebateDurationDaysDefault
+	}
+	days, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || days < 0 {
+		return AffiliateRebateDurationDaysDefault
+	}
+	if days > AffiliateRebateDurationDaysMax {
+		return AffiliateRebateDurationDaysMax
+	}
+	return days
+}
+
+// GetAffiliateRebatePerInviteeCap 返回单人返利上限。
+// 返回 0 表示无上限。
+func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateRebatePerInviteeCap)
+	if err != nil {
+		return AffiliateRebatePerInviteeCapDefault
+	}
+	cap, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || cap < 0 || math.IsNaN(cap) || math.IsInf(cap, 0) {
+		return AffiliateRebatePerInviteeCapDefault
+	}
+	return cap
+}
+
 // IsPasswordResetEnabled 检查是否启用密码重置功能
 // 要求：必须同时开启邮件验证
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
@@ -1755,6 +1838,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyDefaultConcurrency:                       strconv.Itoa(s.cfg.Default.UserConcurrency),
 		SettingKeyDefaultBalance:                           strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
 		SettingKeyAffiliateRebateRate:                      strconv.FormatFloat(AffiliateRebateRateDefault, 'f', 8, 64),
+		SettingKeyAffiliateRebateFreezeHours:               strconv.Itoa(AffiliateRebateFreezeHoursDefault),
+		SettingKeyAffiliateRebateDurationDays:              strconv.Itoa(AffiliateRebateDurationDaysDefault),
+		SettingKeyAffiliateRebatePerInviteeCap:             strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
 		SettingKeyDefaultUserRPMLimit:                      "0",
 		SettingKeyDefaultSubscriptions:                     "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:            "0",
@@ -1811,12 +1897,27 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyMaxClaudeCodeVersion: "",
 
 		// 分组隔离（默认不允许未分组 Key 调度）
-		SettingKeyAllowUngroupedKeyScheduling:    "false",
-		SettingPaymentVisibleMethodAlipaySource:  "",
-		SettingPaymentVisibleMethodWxpaySource:   "",
-		SettingPaymentVisibleMethodAlipayEnabled: "false",
-		SettingPaymentVisibleMethodWxpayEnabled:  "false",
-		openAIAdvancedSchedulerSettingKey:        "false",
+		SettingKeyAllowUngroupedKeyScheduling:        "false",
+		SettingPaymentVisibleMethodAlipaySource:      "",
+		SettingPaymentVisibleMethodWxpaySource:       "",
+		SettingPaymentVisibleMethodAlipayEnabled:     "false",
+		SettingPaymentVisibleMethodWxpayEnabled:      "false",
+		openAIAdvancedSchedulerSettingKey:            "false",
+		SettingKeyComplianceModerationEnabled:        "false",
+		SettingKeyComplianceTencentSecretID:          "",
+		SettingKeyComplianceTencentSecretKey:         "",
+		SettingKeyComplianceTencentRegion:            "ap-guangzhou",
+		SettingKeyComplianceModerationType:           "TEXT",
+		SettingKeyComplianceModerationTimeoutSeconds: "5",
+		SettingKeyComplianceModerationMaxChars:       "10000",
+		SettingKeyComplianceModerationReviewAction:   "block",
+		SettingKeyComplianceExternalDecisionEnabled:  "false",
+		SettingKeyComplianceExternalDecisionEndpoint: "",
+		SettingKeyComplianceExternalDecisionTimeout:  "3",
+		SettingKeyComplianceExternalDecisionFailure:  "fail_closed",
+		SettingKeyComplianceExternalTenantID:         "default",
+		SettingKeyComplianceExternalProjectID:        "",
+		SettingKeyComplianceExternalTargetRegion:     "overseas",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -1889,6 +1990,21 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.AffiliateRebateRate = clampAffiliateRebateRate(rebateRate)
 	} else {
 		result.AffiliateRebateRate = AffiliateRebateRateDefault
+	}
+	if freezeHours, err := strconv.Atoi(settings[SettingKeyAffiliateRebateFreezeHours]); err == nil && freezeHours >= 0 {
+		if freezeHours > AffiliateRebateFreezeHoursMax {
+			freezeHours = AffiliateRebateFreezeHoursMax
+		}
+		result.AffiliateRebateFreezeHours = freezeHours
+	}
+	if durationDays, err := strconv.Atoi(settings[SettingKeyAffiliateRebateDurationDays]); err == nil && durationDays >= 0 {
+		if durationDays > AffiliateRebateDurationDaysMax {
+			durationDays = AffiliateRebateDurationDaysMax
+		}
+		result.AffiliateRebateDurationDays = durationDays
+	}
+	if perInviteeCap, err := strconv.ParseFloat(settings[SettingKeyAffiliateRebatePerInviteeCap], 64); err == nil && perInviteeCap >= 0 {
+		result.AffiliateRebatePerInviteeCap = perInviteeCap
 	}
 	result.DefaultSubscriptions = parseDefaultSubscriptions(settings[SettingKeyDefaultSubscriptions])
 
@@ -2144,6 +2260,75 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	result.EnableMetadataPassthrough = settings[SettingKeyEnableMetadataPassthrough] == "true"
 	result.EnableCCHSigning = settings[SettingKeyEnableCCHSigning] == "true"
+
+	// Compliance moderation: 默认关闭，开启后缺少密钥会在运行时 fail-closed。
+	result.ComplianceModerationEnabled = settings[SettingKeyComplianceModerationEnabled] == "true"
+	result.ComplianceTencentSecretID = strings.TrimSpace(settings[SettingKeyComplianceTencentSecretID])
+	result.ComplianceTencentSecretKey = strings.TrimSpace(settings[SettingKeyComplianceTencentSecretKey])
+	result.ComplianceTencentSecretKeyConfigured = result.ComplianceTencentSecretKey != ""
+	result.ComplianceTencentRegion = strings.TrimSpace(settings[SettingKeyComplianceTencentRegion])
+	if result.ComplianceTencentRegion == "" {
+		result.ComplianceTencentRegion = "ap-guangzhou"
+	}
+	result.ComplianceModerationType = strings.TrimSpace(settings[SettingKeyComplianceModerationType])
+	if result.ComplianceModerationType == "" {
+		result.ComplianceModerationType = "TEXT"
+	}
+	result.ComplianceModerationTimeoutSeconds = 5
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceModerationTimeoutSeconds]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 30 {
+				v = 30
+			}
+			result.ComplianceModerationTimeoutSeconds = v
+		}
+	}
+	result.ComplianceModerationMaxChars = 10000
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceModerationMaxChars]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 10000 {
+				v = 10000
+			}
+			result.ComplianceModerationMaxChars = v
+		}
+	}
+	result.ComplianceModerationReviewAction = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceModerationReviewAction]))
+	if result.ComplianceModerationReviewAction == "" {
+		result.ComplianceModerationReviewAction = "block"
+	}
+	result.ComplianceExternalDecisionEnabled = settings[SettingKeyComplianceExternalDecisionEnabled] == "true"
+	result.ComplianceExternalDecisionEndpoint = strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionEndpoint])
+	result.ComplianceExternalDecisionTimeout = 3
+	if raw := strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionTimeout]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 1 {
+				v = 1
+			}
+			if v > 30 {
+				v = 30
+			}
+			result.ComplianceExternalDecisionTimeout = v
+		}
+	}
+	result.ComplianceExternalDecisionFailure = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceExternalDecisionFailure]))
+	if result.ComplianceExternalDecisionFailure == "" {
+		result.ComplianceExternalDecisionFailure = "fail_closed"
+	}
+	result.ComplianceExternalTenantID = strings.TrimSpace(settings[SettingKeyComplianceExternalTenantID])
+	if result.ComplianceExternalTenantID == "" {
+		result.ComplianceExternalTenantID = "default"
+	}
+	result.ComplianceExternalProjectID = strings.TrimSpace(settings[SettingKeyComplianceExternalProjectID])
+	result.ComplianceExternalTargetRegion = strings.ToLower(strings.TrimSpace(settings[SettingKeyComplianceExternalTargetRegion]))
+	if result.ComplianceExternalTargetRegion == "" {
+		result.ComplianceExternalTargetRegion = "overseas"
+	}
 
 	// Web search emulation: quick enabled check from the JSON config
 	if raw := settings[SettingKeyWebSearchEmulationConfig]; raw != "" {

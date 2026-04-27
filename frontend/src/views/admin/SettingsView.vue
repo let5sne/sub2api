@@ -2778,6 +2778,242 @@
                 </div>
                 <Toggle v-model="form.enable_cch_signing" />
               </div>
+
+              <!-- Compliance Moderation -->
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label
+                      class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      合规审核
+                    </label>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      审核文本输入与非流式文本输出，流式输出第一版只审核输入。
+                    </p>
+                  </div>
+                  <Toggle v-model="form.compliance_moderation_enabled" />
+                </div>
+
+                <div
+                  v-if="form.compliance_moderation_enabled"
+                  class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2"
+                >
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      腾讯云 SecretId
+                    </label>
+                    <input
+                      v-model="form.compliance_tencent_secret_id"
+                      type="text"
+                      class="input font-mono text-sm"
+                      placeholder="AKID..."
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      腾讯云 SecretKey
+                    </label>
+                    <input
+                      v-model="form.compliance_tencent_secret_key"
+                      type="password"
+                      class="input font-mono text-sm"
+                      :placeholder="
+                        form.compliance_tencent_secret_key_configured
+                          ? '已配置，留空保留当前密钥'
+                          : '请输入 SecretKey'
+                      "
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        form.compliance_tencent_secret_key_configured
+                          ? "SecretKey 已配置，保存时留空不会覆盖旧值。"
+                          : "启用合规审核时必须配置 SecretKey。"
+                      }}
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Region
+                    </label>
+                    <input
+                      v-model="form.compliance_tencent_region"
+                      type="text"
+                      class="input font-mono text-sm"
+                      placeholder="ap-guangzhou"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      审核类型
+                    </label>
+                    <Select
+                      v-model="form.compliance_moderation_type"
+                      :options="[
+                        { value: 'TEXT', label: 'TEXT 内容安全' },
+                        { value: 'TEXT_AIGC', label: 'TEXT_AIGC AI生成识别' },
+                      ]"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      请求超时（秒）
+                    </label>
+                    <input
+                      v-model.number="
+                        form.compliance_moderation_timeout_seconds
+                      "
+                      type="number"
+                      min="1"
+                      max="30"
+                      class="input"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      最大审核字符数
+                    </label>
+                    <input
+                      v-model.number="form.compliance_moderation_max_chars"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      class="input"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Review 处置策略
+                    </label>
+                    <Select
+                      v-model="form.compliance_moderation_review_action"
+                      :options="[
+                        { value: 'block', label: '阻断' },
+                        { value: 'pass', label: '放行' },
+                      ]"
+                    />
+                  </div>
+                  <div class="md:col-span-2">
+                    <div class="flex items-center justify-between gap-4">
+                      <div>
+                        <label
+                          class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >
+                          外部合规控制面
+                        </label>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                          启用后优先调用 compliance-platform 决策服务，失败按下方策略处理。
+                        </p>
+                      </div>
+                      <Toggle
+                        v-model="form.compliance_external_decision_enabled"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    v-if="form.compliance_external_decision_enabled"
+                    class="md:col-span-2 grid gap-4 md:grid-cols-2"
+                  >
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        决策服务地址
+                      </label>
+                      <input
+                        v-model="form.compliance_external_decision_endpoint"
+                        type="url"
+                        class="input font-mono text-sm"
+                        placeholder="https://compliance.example.com"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        外部调用失败策略
+                      </label>
+                      <Select
+                        v-model="form.compliance_external_decision_failure_mode"
+                        :options="[
+                          { value: 'fail_closed', label: '阻断' },
+                          { value: 'fail_open', label: '放行' },
+                        ]"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        租户 ID
+                      </label>
+                      <input
+                        v-model="form.compliance_external_tenant_id"
+                        type="text"
+                        class="input font-mono text-sm"
+                        placeholder="default"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        项目 ID
+                      </label>
+                      <input
+                        v-model="form.compliance_external_project_id"
+                        type="text"
+                        class="input font-mono text-sm"
+                        placeholder="可选"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        目标区域
+                      </label>
+                      <Select
+                        v-model="form.compliance_external_target_region"
+                        :options="[
+                          { value: 'overseas', label: '境外' },
+                          { value: 'domestic', label: '国内' },
+                        ]"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        外部请求超时（秒）
+                      </label>
+                      <input
+                        v-model.number="
+                          form.compliance_external_decision_timeout_seconds
+                        "
+                        type="number"
+                        min="1"
+                        max="30"
+                        class="input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <!-- Web Search Emulation -->
@@ -3895,6 +4131,56 @@
                 </div>
                 <p class="mt-1 text-xs text-gray-400">
                   {{ t('admin.settings.features.affiliate.rebateRateHint') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.freezeHours') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_rebate_freeze_hours"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="720"
+                  class="input"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.freezeHoursDesc') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.durationDays') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_rebate_duration_days"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="3650"
+                  class="input"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.durationDaysDesc') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.perInviteeCap') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_rebate_per_invitee_cap"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="input"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.perInviteeCapDesc') }}
                 </p>
               </div>
 
@@ -5318,6 +5604,7 @@ type SettingsForm = Omit<
   wechat_connect_mp_enabled: boolean;
   wechat_connect_mobile_enabled: boolean;
   oidc_connect_client_secret: string;
+  compliance_tencent_secret_key: string;
   force_email_on_third_party_signup: boolean;
   openai_advanced_scheduler_enabled: boolean;
 };
@@ -5333,6 +5620,9 @@ const form = reactive<SettingsForm>({
   totp_encryption_key_configured: false,
   default_balance: 0,
   affiliate_rebate_rate: 20,
+  affiliate_rebate_freeze_hours: 0,
+  affiliate_rebate_duration_days: 0,
+  affiliate_rebate_per_invitee_cap: 0,
   default_concurrency: 1,
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
@@ -5469,6 +5759,22 @@ const form = reactive<SettingsForm>({
   enable_fingerprint_unification: true,
   enable_metadata_passthrough: false,
   enable_cch_signing: false,
+  compliance_moderation_enabled: false,
+  compliance_tencent_secret_id: "",
+  compliance_tencent_secret_key: "",
+  compliance_tencent_secret_key_configured: false,
+  compliance_tencent_region: "ap-guangzhou",
+  compliance_moderation_type: "TEXT",
+  compliance_moderation_timeout_seconds: 5,
+  compliance_moderation_max_chars: 10000,
+  compliance_moderation_review_action: "block",
+  compliance_external_decision_enabled: false,
+  compliance_external_decision_endpoint: "",
+  compliance_external_decision_timeout_seconds: 3,
+  compliance_external_decision_failure_mode: "fail_closed",
+  compliance_external_tenant_id: "default",
+  compliance_external_project_id: "",
+  compliance_external_target_region: "overseas",
   // Balance & quota notification
   balance_low_notify_enabled: false,
   balance_low_notify_threshold: 0,
@@ -6006,6 +6312,7 @@ async function loadSettings() {
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
     form.linuxdo_connect_client_secret = "";
+    form.compliance_tencent_secret_key = "";
     form.wechat_connect_app_secret = "";
     form.wechat_connect_open_app_secret = "";
     form.wechat_connect_mp_app_secret = "";
@@ -6237,6 +6544,23 @@ async function saveSettings() {
     // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
     if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
     if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
+    if (
+      form.compliance_external_decision_enabled &&
+      !isValidHttpUrl(form.compliance_external_decision_endpoint)
+    ) {
+      appStore.showError("启用外部合规控制面时必须填写有效的 HTTP(S) 地址。");
+      return;
+    }
+    if (form.compliance_moderation_enabled) {
+      if (!form.compliance_external_decision_enabled) {
+        appStore.showError("启用合规审核时必须启用外部合规控制面。");
+        return;
+      }
+      if (!isValidHttpUrl(form.compliance_external_decision_endpoint)) {
+        appStore.showError("启用合规审核时必须填写有效的外部合规控制面地址。");
+        return;
+      }
+    }
     syncWeChatConnectMode();
     const wechatStoredMode = deriveWeChatConnectStoredMode(
       form.wechat_connect_open_enabled,
@@ -6261,6 +6585,9 @@ async function saveSettings() {
         100,
         Math.max(0, Number(form.affiliate_rebate_rate) || 0),
       ),
+      affiliate_rebate_freeze_hours: Math.max(0, Math.min(720, Number(form.affiliate_rebate_freeze_hours) || 0)),
+      affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
+      affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
       default_concurrency: form.default_concurrency,
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,
@@ -6357,6 +6684,43 @@ async function saveSettings() {
       enable_fingerprint_unification: form.enable_fingerprint_unification,
       enable_metadata_passthrough: form.enable_metadata_passthrough,
       enable_cch_signing: form.enable_cch_signing,
+      compliance_moderation_enabled: form.compliance_moderation_enabled,
+      compliance_tencent_secret_id:
+        form.compliance_tencent_secret_id?.trim() || "",
+      compliance_tencent_secret_key:
+        form.compliance_tencent_secret_key?.trim() || undefined,
+      compliance_tencent_region:
+        form.compliance_tencent_region?.trim() || "ap-guangzhou",
+      compliance_moderation_type: form.compliance_moderation_type || "TEXT",
+      compliance_moderation_timeout_seconds: Math.min(
+        30,
+        Math.max(1, Number(form.compliance_moderation_timeout_seconds) || 5),
+      ),
+      compliance_moderation_max_chars: Math.min(
+        10000,
+        Math.max(1, Number(form.compliance_moderation_max_chars) || 10000),
+      ),
+      compliance_moderation_review_action:
+        form.compliance_moderation_review_action || "block",
+      compliance_external_decision_enabled:
+        form.compliance_external_decision_enabled,
+      compliance_external_decision_endpoint:
+        form.compliance_external_decision_endpoint?.trim() || "",
+      compliance_external_decision_timeout_seconds: Math.min(
+        30,
+        Math.max(
+          1,
+          Number(form.compliance_external_decision_timeout_seconds) || 3,
+        ),
+      ),
+      compliance_external_decision_failure_mode:
+        form.compliance_external_decision_failure_mode || "fail_closed",
+      compliance_external_tenant_id:
+        form.compliance_external_tenant_id?.trim() || "default",
+      compliance_external_project_id:
+        form.compliance_external_project_id?.trim() || "",
+      compliance_external_target_region:
+        form.compliance_external_target_region || "overseas",
       // Payment configuration
       payment_enabled: form.payment_enabled,
       payment_min_amount: Number(form.payment_min_amount) || 0,
@@ -6427,6 +6791,7 @@ async function saveSettings() {
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
     form.linuxdo_connect_client_secret = "";
+    form.compliance_tencent_secret_key = "";
     form.wechat_connect_app_secret = "";
     form.wechat_connect_open_app_secret = "";
     form.wechat_connect_mp_app_secret = "";

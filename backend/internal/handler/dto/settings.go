@@ -106,11 +106,14 @@ type SystemSettings struct {
 	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
 	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
 
-	DefaultConcurrency   int                          `json:"default_concurrency"`
-	DefaultBalance       float64                      `json:"default_balance"`
-	AffiliateRebateRate  float64                      `json:"affiliate_rebate_rate"`
-	DefaultUserRPMLimit  int                          `json:"default_user_rpm_limit"`
-	DefaultSubscriptions []DefaultSubscriptionSetting `json:"default_subscriptions"`
+	DefaultConcurrency           int                          `json:"default_concurrency"`
+	DefaultBalance               float64                      `json:"default_balance"`
+	AffiliateRebateRate          float64                      `json:"affiliate_rebate_rate"`
+	AffiliateRebateFreezeHours   int                          `json:"affiliate_rebate_freeze_hours"`
+	AffiliateRebateDurationDays  int                          `json:"affiliate_rebate_duration_days"`
+	AffiliateRebatePerInviteeCap float64                      `json:"affiliate_rebate_per_invitee_cap"`
+	DefaultUserRPMLimit          int                          `json:"default_user_rpm_limit"`
+	DefaultSubscriptions         []DefaultSubscriptionSetting `json:"default_subscriptions"`
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -142,6 +145,23 @@ type SystemSettings struct {
 	EnableFingerprintUnification bool `json:"enable_fingerprint_unification"`
 	EnableMetadataPassthrough    bool `json:"enable_metadata_passthrough"`
 	EnableCCHSigning             bool `json:"enable_cch_signing"`
+
+	// Compliance moderation
+	ComplianceModerationEnabled          bool   `json:"compliance_moderation_enabled"`
+	ComplianceTencentSecretID            string `json:"compliance_tencent_secret_id"`
+	ComplianceTencentSecretKeyConfigured bool   `json:"compliance_tencent_secret_key_configured"`
+	ComplianceTencentRegion              string `json:"compliance_tencent_region"`
+	ComplianceModerationType             string `json:"compliance_moderation_type"`
+	ComplianceModerationTimeoutSeconds   int    `json:"compliance_moderation_timeout_seconds"`
+	ComplianceModerationMaxChars         int    `json:"compliance_moderation_max_chars"`
+	ComplianceModerationReviewAction     string `json:"compliance_moderation_review_action"`
+	ComplianceExternalDecisionEnabled    bool   `json:"compliance_external_decision_enabled"`
+	ComplianceExternalDecisionEndpoint   string `json:"compliance_external_decision_endpoint"`
+	ComplianceExternalDecisionTimeout    int    `json:"compliance_external_decision_timeout_seconds"`
+	ComplianceExternalDecisionFailure    string `json:"compliance_external_decision_failure_mode"`
+	ComplianceExternalTenantID           string `json:"compliance_external_tenant_id"`
+	ComplianceExternalProjectID          string `json:"compliance_external_project_id"`
+	ComplianceExternalTargetRegion       string `json:"compliance_external_target_region"`
 
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
