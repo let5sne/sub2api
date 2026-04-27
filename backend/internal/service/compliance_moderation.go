@@ -1,26 +1,17 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
-
-	"github.com/tidwall/gjson"
 )
 
 const (
@@ -37,11 +28,7 @@ const (
 	ComplianceDecisionBlock  = "block"
 	ComplianceDecisionError  = "error"
 
-	complianceTencentEndpoint = "https://tms.tencentcloudapi.com/"
-	complianceTencentService  = "tms"
-	complianceTencentVersion  = "2020-12-29"
-	complianceTencentAction   = "TextModeration"
-	complianceCacheTTL        = 60 * time.Second
+	complianceCacheTTL = 60 * time.Second
 )
 
 var (
@@ -51,14 +38,8 @@ var (
 
 type ComplianceModerationRuntimeConfig struct {
 	Enabled                  bool
-	TencentSecretID          string
-	TencentSecretKey         string
-	TencentRegion            string
-	ModerationType           string
 	Timeout                  time.Duration
 	MaxChars                 int
-	ReviewAction             string
-	SecretKeyConfigured      bool
 	ExternalDecisionEnabled  bool
 	ExternalDecisionEndpoint string
 	ExternalDecisionTimeout  time.Duration
@@ -111,7 +92,6 @@ func NewComplianceModerationService(settingService *SettingService) *ComplianceM
 	return &ComplianceModerationService{
 		settingService: settingService,
 		httpClient:     http.DefaultClient,
-		endpoint:       complianceTencentEndpoint,
 	}
 }
 
@@ -148,41 +128,13 @@ func (s *ComplianceModerationService) check(ctx context.Context, stage string, p
 	result.TextChars = utf8.RuneCountInString(text)
 	result.TextHash = complianceTextHash(text)
 
-	if cfg.ExternalDecisionEnabled && strings.TrimSpace(cfg.ExternalDecisionEndpoint) != "" {
-		handled, err := s.checkExternalDecision(ctx, cfg, result, text)
-		if handled || err != nil {
-			return result, err
-		}
-	}
-
-	if strings.TrimSpace(cfg.TencentSecretID) == "" || strings.TrimSpace(cfg.TencentSecretKey) == "" {
+	if !cfg.ExternalDecisionEnabled || strings.TrimSpace(cfg.ExternalDecisionEndpoint) == "" {
 		result.Decision = ComplianceDecisionError
-		result.Error = "missing Tencent Cloud moderation credentials"
+		result.Error = "external compliance decision service is not configured"
 		return result, ErrComplianceUnavailable
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
-	moderation, err := s.callTencentTextModeration(ctx, cfg, text)
-	if err != nil {
-		result.Decision = ComplianceDecisionError
-		result.Error = err.Error()
-		return result, ErrComplianceUnavailable
-	}
-	result.RequestID = moderation.RequestID
-	result.Label = moderation.Label
-	result.Suggestion = moderation.Suggestion
-	result.Score = moderation.Score
-	result.Keywords = moderation.Keywords
-	result.Decision = normalizeComplianceDecision(moderation.Suggestion)
-	if result.Decision == ComplianceDecisionReview && strings.EqualFold(cfg.ReviewAction, "pass") {
-		result.Decision = ComplianceDecisionPass
-	}
-	if result.Blocked() {
-		return result, ErrComplianceBlocked
-	}
-	return result, nil
+	_, err = s.checkExternalDecision(ctx, cfg, result, text)
+	return result, err
 }
 
 func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*ComplianceModerationRuntimeConfig, error) {
@@ -204,14 +156,8 @@ func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*Compl
 	}
 	cfg := &ComplianceModerationRuntimeConfig{
 		Enabled:                  settings.ComplianceModerationEnabled,
-		TencentSecretID:          strings.TrimSpace(settings.ComplianceTencentSecretID),
-		TencentSecretKey:         strings.TrimSpace(settings.ComplianceTencentSecretKey),
-		TencentRegion:            strings.TrimSpace(settings.ComplianceTencentRegion),
-		ModerationType:           strings.TrimSpace(settings.ComplianceModerationType),
 		Timeout:                  time.Duration(settings.ComplianceModerationTimeoutSeconds) * time.Second,
 		MaxChars:                 settings.ComplianceModerationMaxChars,
-		ReviewAction:             strings.TrimSpace(settings.ComplianceModerationReviewAction),
-		SecretKeyConfigured:      settings.ComplianceTencentSecretKeyConfigured,
 		ExternalDecisionEnabled:  settings.ComplianceExternalDecisionEnabled,
 		ExternalDecisionEndpoint: strings.TrimSpace(settings.ComplianceExternalDecisionEndpoint),
 		ExternalDecisionTimeout:  time.Duration(settings.ComplianceExternalDecisionTimeout) * time.Second,
@@ -219,12 +165,6 @@ func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*Compl
 		ExternalTenantID:         strings.TrimSpace(settings.ComplianceExternalTenantID),
 		ExternalProjectID:        strings.TrimSpace(settings.ComplianceExternalProjectID),
 		ExternalTargetRegion:     strings.TrimSpace(settings.ComplianceExternalTargetRegion),
-	}
-	if cfg.TencentRegion == "" {
-		cfg.TencentRegion = "ap-guangzhou"
-	}
-	if cfg.ModerationType == "" {
-		cfg.ModerationType = "TEXT"
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 5 * time.Second
@@ -234,9 +174,6 @@ func (s *ComplianceModerationService) runtimeConfig(ctx context.Context) (*Compl
 	}
 	if cfg.MaxChars <= 0 || cfg.MaxChars > 10000 {
 		cfg.MaxChars = 10000
-	}
-	if cfg.ReviewAction == "" {
-		cfg.ReviewAction = "block"
 	}
 	if cfg.ExternalDecisionTimeout <= 0 {
 		cfg.ExternalDecisionTimeout = 3 * time.Second
@@ -500,168 +437,4 @@ func truncateComplianceText(text string, maxChars int, truncated *bool) string {
 func complianceTextHash(text string) string {
 	sum := sha256.Sum256([]byte(text))
 	return hex.EncodeToString(sum[:])
-}
-
-type tencentModerationResult struct {
-	Suggestion string
-	Label      string
-	Score      int
-	Keywords   []string
-	RequestID  string
-}
-
-func (s *ComplianceModerationService) callTencentTextModeration(ctx context.Context, cfg *ComplianceModerationRuntimeConfig, text string) (*tencentModerationResult, error) {
-	payload := map[string]any{
-		"Content": base64.StdEncoding.EncodeToString([]byte(text)),
-		"Type":    firstNonEmpty(cfg.ModerationType, "TEXT"),
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	endpoint := s.endpoint
-	if endpoint == "" {
-		endpoint = complianceTencentEndpoint
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	host := u.Host
-	timestamp := time.Now().Unix()
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	req.Header.Set("Host", host)
-	req.Header.Set("X-TC-Action", complianceTencentAction)
-	req.Header.Set("X-TC-Version", complianceTencentVersion)
-	req.Header.Set("X-TC-Timestamp", strconv.FormatInt(timestamp, 10))
-	req.Header.Set("X-TC-Region", cfg.TencentRegion)
-	req.Header.Set("Authorization", tencentTC3Authorization(cfg.TencentSecretID, cfg.TencentSecretKey, host, timestamp, body, req.Header))
-
-	client := s.httpClient
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("tencent moderation http status %d", resp.StatusCode)
-	}
-	if msg := strings.TrimSpace(gjson.GetBytes(respBody, "Response.Error.Message").String()); msg != "" {
-		code := strings.TrimSpace(gjson.GetBytes(respBody, "Response.Error.Code").String())
-		if code != "" {
-			return nil, fmt.Errorf("%s: %s", code, msg)
-		}
-		return nil, errors.New(msg)
-	}
-
-	res := &tencentModerationResult{
-		Suggestion: strings.TrimSpace(gjson.GetBytes(respBody, "Response.Suggestion").String()),
-		Label:      strings.TrimSpace(gjson.GetBytes(respBody, "Response.Label").String()),
-		Score:      int(gjson.GetBytes(respBody, "Response.Score").Int()),
-		RequestID:  strings.TrimSpace(gjson.GetBytes(respBody, "Response.RequestId").String()),
-	}
-	res.Keywords = collectTencentKeywords(respBody)
-	return res, nil
-}
-
-func collectTencentKeywords(body []byte) []string {
-	seen := make(map[string]struct{})
-	var out []string
-	add := func(s string) {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			return
-		}
-		if _, ok := seen[s]; ok {
-			return
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
-	}
-	for _, path := range []string{"Response.Keywords", "Response.DetailResults.#.Keywords", "Response.DetailResults.#.LibResults.#.Keywords"} {
-		v := gjson.GetBytes(body, path)
-		if !v.Exists() {
-			continue
-		}
-		v.ForEach(func(_, item gjson.Result) bool {
-			if item.IsArray() {
-				item.ForEach(func(_, nested gjson.Result) bool {
-					add(nested.String())
-					return true
-				})
-				return true
-			}
-			add(item.String())
-			return true
-		})
-	}
-	sort.Strings(out)
-	if len(out) > 20 {
-		return out[:20]
-	}
-	return out
-}
-
-func normalizeComplianceDecision(suggestion string) string {
-	switch strings.ToLower(strings.TrimSpace(suggestion)) {
-	case "", "pass":
-		return ComplianceDecisionPass
-	case "review":
-		return ComplianceDecisionReview
-	case "block":
-		return ComplianceDecisionBlock
-	default:
-		return ComplianceDecisionError
-	}
-}
-
-func tencentTC3Authorization(secretID, secretKey, host string, timestamp int64, payload []byte, headers http.Header) string {
-	date := time.Unix(timestamp, 0).UTC().Format("2006-01-02")
-	canonicalHeaders := "content-type:" + strings.ToLower(headers.Get("Content-Type")) + "\n" +
-		"host:" + strings.ToLower(host) + "\n"
-	signedHeaders := "content-type;host"
-	hashedRequestPayload := sha256Hex(payload)
-	canonicalRequest := strings.Join([]string{
-		http.MethodPost,
-		"/",
-		"",
-		canonicalHeaders,
-		signedHeaders,
-		hashedRequestPayload,
-	}, "\n")
-	credentialScope := date + "/" + complianceTencentService + "/tc3_request"
-	stringToSign := strings.Join([]string{
-		"TC3-HMAC-SHA256",
-		strconv.FormatInt(timestamp, 10),
-		credentialScope,
-		sha256Hex([]byte(canonicalRequest)),
-	}, "\n")
-	secretDate := hmacSHA256([]byte("TC3"+secretKey), date)
-	secretService := hmacSHA256(secretDate, complianceTencentService)
-	secretSigning := hmacSHA256(secretService, "tc3_request")
-	signature := hex.EncodeToString(hmacSHA256(secretSigning, stringToSign))
-	return "TC3-HMAC-SHA256 Credential=" + secretID + "/" + credentialScope + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature
-}
-
-func sha256Hex(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
-func hmacSHA256(key []byte, msg string) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(msg))
-	return mac.Sum(nil)
 }

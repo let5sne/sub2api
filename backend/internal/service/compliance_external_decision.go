@@ -48,8 +48,6 @@ func (s *ComplianceModerationService) checkExternalDecision(
 		case "fail_open":
 			result.Decision = ComplianceDecisionPass
 			return true, nil
-		case "fallback_local":
-			return false, nil
 		default:
 			return true, ErrComplianceUnavailable
 		}

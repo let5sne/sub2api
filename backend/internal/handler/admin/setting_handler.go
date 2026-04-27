@@ -1214,8 +1214,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if complianceExternalDecisionFailure == "" {
 		complianceExternalDecisionFailure = "fail_closed"
 	}
-	if complianceExternalDecisionFailure != "fail_closed" && complianceExternalDecisionFailure != "fail_open" && complianceExternalDecisionFailure != "fallback_local" {
-		response.BadRequest(c, "Compliance external failure mode must be fail_closed, fail_open, or fallback_local")
+	if complianceExternalDecisionFailure != "fail_closed" && complianceExternalDecisionFailure != "fail_open" {
+		response.BadRequest(c, "Compliance external failure mode must be fail_closed or fail_open")
 		return
 	}
 	complianceExternalTenantID := previousSettings.ComplianceExternalTenantID
@@ -1236,8 +1236,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if complianceExternalTargetRegion == "" {
 		complianceExternalTargetRegion = "overseas"
 	}
-	if complianceExternalDecisionEnabled && complianceExternalDecisionEndpoint == "" {
-		response.BadRequest(c, "Compliance external decision endpoint is required when enabled")
+	if complianceEnabled && (!complianceExternalDecisionEnabled || complianceExternalDecisionEndpoint == "") {
+		response.BadRequest(c, "Compliance external decision endpoint is required when compliance moderation is enabled")
 		return
 	}
 	if complianceEnabled {

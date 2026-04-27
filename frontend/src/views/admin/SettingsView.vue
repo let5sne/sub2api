@@ -2951,7 +2951,6 @@
                         v-model="form.compliance_external_decision_failure_mode"
                         :options="[
                           { value: 'fail_closed', label: '阻断' },
-                          { value: 'fallback_local', label: '回退本地审核' },
                           { value: 'fail_open', label: '放行' },
                         ]"
                       />
@@ -6553,15 +6552,12 @@ async function saveSettings() {
       return;
     }
     if (form.compliance_moderation_enabled) {
-      if (!String(form.compliance_tencent_secret_id || "").trim()) {
-        appStore.showError("启用合规审核时必须填写腾讯云 SecretId。");
+      if (!form.compliance_external_decision_enabled) {
+        appStore.showError("启用合规审核时必须启用外部合规控制面。");
         return;
       }
-      if (
-        !form.compliance_tencent_secret_key_configured &&
-        !String(form.compliance_tencent_secret_key || "").trim()
-      ) {
-        appStore.showError("启用合规审核时必须填写腾讯云 SecretKey。");
+      if (!isValidHttpUrl(form.compliance_external_decision_endpoint)) {
+        appStore.showError("启用合规审核时必须填写有效的外部合规控制面地址。");
         return;
       }
     }

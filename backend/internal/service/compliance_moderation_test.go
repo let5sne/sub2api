@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -94,58 +93,9 @@ func TestComplianceExtractors(t *testing.T) {
 	}
 }
 
-func TestComplianceTencentClientAndDecisionMapping(t *testing.T) {
-	var capturedContent string
-	var capturedAuth string
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-TC-Action") != complianceTencentAction {
-			t.Fatalf("missing action header: %s", r.Header.Get("X-TC-Action"))
-		}
-		capturedAuth = r.Header.Get("Authorization")
-		var req map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			t.Fatalf("decode request: %v", err)
-		}
-		capturedContent = req["Content"]
-		_, _ = w.Write([]byte(`{"Response":{"Suggestion":"Review","Label":"Polity","Score":88,"Keywords":["kw"],"RequestId":"req-1"}}`))
-	}))
-	defer ts.Close()
-
-	repo := &complianceSettingRepoStub{values: map[string]string{
-		SettingKeyComplianceModerationEnabled:        "true",
-		SettingKeyComplianceTencentSecretID:          "sid",
-		SettingKeyComplianceTencentSecretKey:         "skey",
-		SettingKeyComplianceTencentRegion:            "ap-guangzhou",
-		SettingKeyComplianceModerationType:           "TEXT",
-		SettingKeyComplianceModerationTimeoutSeconds: "3",
-		SettingKeyComplianceModerationMaxChars:       "10000",
-		SettingKeyComplianceModerationReviewAction:   "block",
-	}}
-	svc := NewComplianceModerationService(NewSettingService(repo, &config.Config{}))
-	svc.endpoint = ts.URL + "/"
-	svc.httpClient = ts.Client()
-
-	result, err := svc.CheckInput(context.Background(), ComplianceProtocolOpenAIChat, []byte(`{"messages":[{"content":"bad"}]}`))
-	if err != ErrComplianceBlocked {
-		t.Fatalf("expected blocked error, got result=%#v err=%v", result, err)
-	}
-	if result.Decision != ComplianceDecisionReview || result.RequestID != "req-1" || result.Label != "Polity" {
-		t.Fatalf("unexpected result: %#v", result)
-	}
-	decoded, err := base64.StdEncoding.DecodeString(capturedContent)
-	if err != nil || string(decoded) != "bad" {
-		t.Fatalf("content not base64 text: decoded=%q err=%v", decoded, err)
-	}
-	if !strings.Contains(capturedAuth, "TC3-HMAC-SHA256 Credential=sid/") {
-		t.Fatalf("missing TC3 authorization: %s", capturedAuth)
-	}
-}
-
 func TestComplianceUnavailableFailClosed(t *testing.T) {
 	repo := &complianceSettingRepoStub{values: map[string]string{
 		SettingKeyComplianceModerationEnabled:        "true",
-		SettingKeyComplianceTencentSecretID:          "sid",
-		SettingKeyComplianceTencentSecretKey:         "",
 		SettingKeyComplianceModerationTimeoutSeconds: "1",
 	}}
 	svc := NewComplianceModerationService(NewSettingService(repo, &config.Config{}))
@@ -202,31 +152,22 @@ func TestComplianceExternalDecisionAllow(t *testing.T) {
 	}
 }
 
-func TestComplianceExternalDecisionFallbackLocal(t *testing.T) {
-	tencent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"Response":{"Suggestion":"Pass","RequestId":"req-local"}}`))
-	}))
-	defer tencent.Close()
-
+func TestComplianceExternalDecisionFailOpen(t *testing.T) {
 	repo := &complianceSettingRepoStub{values: map[string]string{
 		SettingKeyComplianceModerationEnabled:        "true",
-		SettingKeyComplianceTencentSecretID:          "sid",
-		SettingKeyComplianceTencentSecretKey:         "skey",
 		SettingKeyComplianceModerationTimeoutSeconds: "3",
 		SettingKeyComplianceExternalDecisionEnabled:  "true",
 		SettingKeyComplianceExternalDecisionEndpoint: "http://127.0.0.1:1",
 		SettingKeyComplianceExternalDecisionTimeout:  "1",
-		SettingKeyComplianceExternalDecisionFailure:  "fallback_local",
+		SettingKeyComplianceExternalDecisionFailure:  "fail_open",
 	}}
 	svc := NewComplianceModerationService(NewSettingService(repo, &config.Config{}))
-	svc.endpoint = tencent.URL + "/"
-	svc.httpClient = tencent.Client()
 
 	result, err := svc.CheckInput(context.Background(), ComplianceProtocolOpenAIChat, []byte(`{"messages":[{"content":"hello"}]}`))
 	if err != nil {
-		t.Fatalf("expected local fallback pass, got result=%#v err=%v", result, err)
+		t.Fatalf("expected fail open pass, got result=%#v err=%v", result, err)
 	}
-	if result.Decision != ComplianceDecisionPass || result.RequestID != "req-local" {
+	if result.Decision != ComplianceDecisionPass {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 }
