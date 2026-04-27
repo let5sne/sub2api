@@ -1133,12 +1133,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		complianceSecretID = strings.TrimSpace(*req.ComplianceTencentSecretID)
 	}
 	complianceSecretKey := ""
-	effectiveComplianceSecretKey := previousSettings.ComplianceTencentSecretKey
 	if req.ComplianceTencentSecretKey != nil {
 		complianceSecretKey = strings.TrimSpace(*req.ComplianceTencentSecretKey)
-		if complianceSecretKey != "" {
-			effectiveComplianceSecretKey = complianceSecretKey
-		}
 	}
 	complianceRegion := previousSettings.ComplianceTencentRegion
 	if req.ComplianceTencentRegion != nil {
@@ -1239,16 +1235,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if complianceEnabled && (!complianceExternalDecisionEnabled || complianceExternalDecisionEndpoint == "") {
 		response.BadRequest(c, "Compliance external decision endpoint is required when compliance moderation is enabled")
 		return
-	}
-	if complianceEnabled {
-		if complianceSecretID == "" {
-			response.BadRequest(c, "Tencent Cloud SecretId is required when compliance moderation is enabled")
-			return
-		}
-		if effectiveComplianceSecretKey == "" {
-			response.BadRequest(c, "Tencent Cloud SecretKey is required when compliance moderation is enabled")
-			return
-		}
 	}
 
 	settings := &service.SystemSettings{
