@@ -5,13 +5,25 @@ This folder provides a ready-to-host image generation page for Sub2API custom me
 ## File
 
 - `image-tool-embed.html`: standalone page (no build step), can be hosted on any static server.
+- `../../frontend/public/custom-pages/image-tool-embed.html`: build-time publish copy. Vite copies it to `/custom-pages/image-tool-embed.html` in the frontend dist.
+
+## Default same-origin publish path
+
+For the standard Sub2API Docker build, publish this page at:
+
+```text
+https://api.ai.let5see.xyz/custom-pages/image-tool-embed.html
+```
+
+The backend applies a dedicated CSP for `/custom-pages/*` so same-origin custom
+menu iframes can load these first-party tools without weakening the main SPA CSP.
 
 ## How to use in Sub2API
 
-1. Host `image-tool-embed.html` on a domain that allows iframe embedding.
+1. Build and deploy Sub2API so `frontend/public/custom-pages/image-tool-embed.html` is included in the frontend dist.
 2. Open admin settings, add a Custom Menu Item:
    - Name: `Image Studio` (or your preferred label)
-   - URL: your hosted page URL
+   - URL: `https://api.ai.let5see.xyz/custom-pages/image-tool-embed.html`
    - Visibility: `user` or `admin`
 3. Save settings and open the new menu item.
 
@@ -70,8 +82,6 @@ If your API uses different fields, adjust `collectImages(...)` in `image-tool-em
 ## Security note
 
 - Use HTTPS in production. HTTP is only acceptable for localhost development.
-- URL query token is detected but not auto-used; user must click `Use URL Token` manually.
-- Preferred approach: pass token via `postMessage`.
-   - Child page emits: `SUB2API_EMBED_READY`
-   - Parent page can send: `{ type: "SUB2API_EMBED_TOKEN", token: "..." }`
+- In embedded mode, the page only fetches API keys when `src_host` is a trusted first-party origin.
+- The login JWT from the parent page is used only to list the current user's API keys; image generation uses the selected API key.
 - Only embed this page in trusted first-party domains.

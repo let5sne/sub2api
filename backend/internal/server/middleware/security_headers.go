@@ -20,6 +20,9 @@ const (
 	CloudflareInsightsDomain = "https://static.cloudflareinsights.com"
 	// StripeDomain is the domain for Stripe.js SDK
 	StripeDomain = "https://*.stripe.com"
+	// CustomPagesCSPPolicy allows first-party static HTML tools to run inside
+	// Sub2API's custom menu iframe while keeping the page origin constrained.
+	CustomPagesCSPPolicy = "default-src 'self'; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'none'"
 )
 
 // GenerateNonce generates a cryptographically secure random nonce.
@@ -65,7 +68,11 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if isCustomPagePath(c) {
+			c.Header("X-Frame-Options", "SAMEORIGIN")
+		} else {
+			c.Header("X-Frame-Options", "DENY")
+		}
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -73,6 +80,12 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 
 		if cfg.Enabled {
+			if isCustomPagePath(c) {
+				c.Header("Content-Security-Policy", CustomPagesCSPPolicy)
+				c.Next()
+				return
+			}
+
 			// Generate nonce for this request
 			nonce, err := GenerateNonce()
 			if err != nil {
@@ -86,6 +99,13 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 		c.Next()
 	}
+}
+
+func isCustomPagePath(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	return strings.HasPrefix(c.Request.URL.Path, "/custom-pages/")
 }
 
 func isAPIRoutePath(c *gin.Context) bool {
