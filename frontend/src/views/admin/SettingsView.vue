@@ -3292,6 +3292,29 @@
                     </div>
                   </div>
                 </div>
+              <!-- Anthropic Cache TTL 1h Injection -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <label
+                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{
+                      t(
+                        "admin.settings.gatewayForwarding.anthropicCacheTTL1hInjection",
+                      )
+                    }}
+                  </label>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{
+                      t(
+                        "admin.settings.gatewayForwarding.anthropicCacheTTL1hInjectionHint",
+                      )
+                    }}
+                  </p>
+                </div>
+                <Toggle
+                  v-model="form.enable_anthropic_cache_ttl_1h_injection"
+                />
               </div>
             </div>
           </div>
@@ -6063,6 +6086,7 @@ const form = reactive<SettingsForm>({
   compliance_external_tenant_id: "default",
   compliance_external_project_id: "",
   compliance_external_target_region: "overseas",
+  enable_anthropic_cache_ttl_1h_injection: false,
   // Balance & quota notification
   balance_low_notify_enabled: false,
   balance_low_notify_threshold: 0,
@@ -7026,6 +7050,8 @@ async function saveSettings() {
         form.compliance_external_project_id?.trim() || "",
       compliance_external_target_region:
         form.compliance_external_target_region || "overseas",
+      enable_anthropic_cache_ttl_1h_injection:
+        form.enable_anthropic_cache_ttl_1h_injection,
       // Payment configuration
       payment_enabled: form.payment_enabled,
       payment_min_amount: Number(form.payment_min_amount) || 0,

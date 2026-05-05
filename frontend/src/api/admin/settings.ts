@@ -454,6 +454,7 @@ export interface SystemSettings {
   compliance_external_tenant_id: string;
   compliance_external_project_id: string;
   compliance_external_target_region: string;
+  enable_anthropic_cache_ttl_1h_injection: boolean;
   web_search_emulation_enabled?: boolean;
 
   // Payment configuration
@@ -639,6 +640,7 @@ export interface UpdateSettingsRequest {
   compliance_external_tenant_id?: string;
   compliance_external_project_id?: string;
   compliance_external_target_region?: string;
+  enable_anthropic_cache_ttl_1h_injection?: boolean;
   // Payment configuration
   payment_enabled?: boolean;
   payment_min_amount?: number;
